@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sync Auth with Firestore - Ishiaya's Garden Bistro</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c5f2d 0%, #1e4620 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .info-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #2c5f2d 0%, #1e4620 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            margin: 10px 0;
+            transition: transform 0.2s;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        button.secondary {
+            background: #6c757d;
+        }
+        
+        #log {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .success { color: #00ff00; }
+        .error { color: #ff4444; }
+        .info { color: #ffaa00; }
+        .warning { color: #ffa500; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2c5f2d, #4caf50);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 Sync Auth with Firestore</h1>
+            <p>Match Authentication UIDs with Firestore User Documents</p>
+        </div>
+        
+        <div class="content">
+            <div class="info-box">
+                <strong>⚠️ What This Does:</strong>
+                <p>This tool will update your Firestore users collection to use Firebase Authentication UIDs as document IDs. This is required for login to work properly.</p>
+            </div>
+            
+            <button id="syncBtn" onclick="syncAuthWithFirestore()">
+                🔄 Start Sync Process
+            </button>
+            
+            <div id="progress"></div>
+            
+            <button class="secondary" onclick="clearLog()">
+                🗑️ Clear Log
+            </button>
+            
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, getDocs, setDoc, doc, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDh9cwDmEC5UBirud98e2nrSwLPJU27LlM",
+            authDomain: "ishiayasgardenbistro-fcafd.firebaseapp.com",
+            projectId: "ishiayasgardenbistro-fcafd",
+            storageBucket: "ishiayasgardenbistro-fcafd.firebasestorage.app",
+            messagingSenderId: "600218357249",
+            appId: "1:600218357249:web:79f75bcfd196f12b093a00",
+            measurementId: "G-XY6Y8HQHEJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+      
+        const employees = [
+            { email: 'ishiayasgardenbistrotabaco@gmail.com', password: 'ishiayagarden123' },
+            { email: 'admin@ishiaya.com', password: 'admin123' },
+            { email: 'lionell@ishiaya.com', password: 'employee123' },
+            { email: 'nelly@ishiaya.com', password: 'emp123' },
+            { email: 'arah@ishiaya.com', password: 'emp123' },
+            { email: 'jonna@ishiaya.com', password: 'emp123' },
+            { email: 'kristina@ishiaya.com', password: 'emp123' },
+            { email: 'dante@ishiaya.com', password: 'emp123' },
+            { email: 'rolando@ishiaya.com', password: 'emp123' },
+            { email: 'jennefer@ishiaya.com', password: 'emp123' },
+            { email: 'juellelie@ishiaya.com', password: 'emp123' },
+            { email: 'jorge@ishiaya.com', password: 'emp123' },
+            { email: 'nardito@ishiaya.com', password: 'emp123' },
+            { email: 'rogelio@ishiaya.com', password: 'emp123' },
+            { email: 'johnlester@ishiaya.com', password: 'emp123' },
+            { email: 'johnkennedy@ishiaya.com', password: 'emp123' },
+            { email: 'isidro@ishiaya.com', password: 'emp123' },
+            { email: 'dharwin@ishiaya.com', password: 'emp123' },
+            { email: 'janneza@ishiaya.com', password: 'emp123' },
+            { email: 'jeanne@ishiaya.com', password: 'emp123' },
+            { email: 'catherine@ishiaya.com', password: 'emp123' },
+            { email: 'elvie@ishiaya.com', password: 'emp123' },
+            { email: 'marjohn@ishiaya.com', password: 'emp123' },
+            { email: 'justine@ishiaya.com', password: 'emp123' },
+            { email: 'raiza@ishiaya.com', password: 'emp123' },
+            { email: 'hazel@ishiaya.com', password: 'emp123' },
+            { email: 'emar@ishiaya.com', password: 'emp123' },
+            { email: 'danny@ishiaya.com', password: 'emp123' },
+            { email: 'richard@ishiaya.com', password: 'emp123' },
+            { email: 'winsel@ishiaya.com', password: 'emp123' },
+            { email: 'rryan@ishiaya.com', password: 'emp123' },
+            { email: 'jofel@ishiaya.com', password: 'emp123' },
+            { email: 'roger@ishiaya.com', password: 'emp123' },
+            { email: 'arvin@ishiaya.com', password: 'emp123' },
+            { email: 'jeffrey@ishiaya.com', password: 'emp123' }
+        ];
+
+        window.log = function(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        window.updateProgress = function(current, total) {
+            const container = document.getElementById('progress');
+            const percent = Math.round((current / total) * 100);
+            container.innerHTML = `
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${percent}%">
+                        ${current} / ${total} (${percent}%)
+                    </div>
+                </div>
+            `;
+        }
+
+        window.syncAuthWithFirestore = async function() {
+            const btn = document.getElementById('syncBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Syncing...';
+            
+            clearLog();
+            log('🔄 Starting sync process...', 'info');
+            
+            try {
+           
+                log('📥 Fetching existing Firestore users...', 'info');
+                const usersSnapshot = await getDocs(collection(db, 'users'));
+                const firestoreUsers = {};
+                
+                usersSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.email) {
+                        firestoreUsers[data.email.toLowerCase()] = data;
+                    }
+                });
+                
+                log(`✅ Found ${Object.keys(firestoreUsers).length} users in Firestore`, 'success');
+                
+                
+                let success = 0;
+                let errors = 0;
+                
+                for (let i = 0; i < employees.length; i++) {
+                    const emp = employees[i];
+                    
+                    try {
+                        
+                        log(`🔐 Authenticating ${emp.email}...`, 'info');
+                        const userCredential = await signInWithEmailAndPassword(auth, emp.email, emp.password);
+                        const uid = userCredential.user.uid;
+                        
+                       
+                        const userData = firestoreUsers[emp.email.toLowerCase()];
+                        
+                        if (userData) {
+                           
+                            await setDoc(doc(db, 'users', uid), {
+                                ...userData,
+                                email: emp.email,
+                                updatedAt: new Date().toISOString()
+                            });
+                            
+                            success++;
+                            log(`  ✅ Synced: ${userData.name || emp.email} (UID: ${uid.substring(0, 8)}...)`, 'success');
+                        } else {
+                            log(`  ⚠️ No Firestore data found for: ${emp.email}`, 'warning');
+                        }
+                        
+                        updateProgress(i + 1, employees.length);
+                        
+                    
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                        
+                    } catch (error) {
+                        errors++;
+                        log(`  ❌ Error syncing ${emp.email}: ${error.message}`, 'error');
+                    }
+                }
+                
+                log(`\n🎉 Sync complete!`, 'success');
+                log(`✅ Successful: ${success}`, 'success');
+                log(`❌ Errors: ${errors}`, errors > 0 ? 'error' : 'info');
+                log(`\n🔐 You can now login with any employee account!`, 'success');
+                
+            } catch (error) {
+                log(`\n❌ Sync failed: ${error.message}`, 'error');
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '✓ Sync Complete';
+            }
+        }
+    </script>
+</body>
+</html>

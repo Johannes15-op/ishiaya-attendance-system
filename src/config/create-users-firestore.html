@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Complete Setup - Ishiaya's Garden Bistro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c5f2d 0%, #1e4620 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #2c5f2d;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        
+        .step h3 {
+            color: #2c5f2d;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .step-number {
+            background: #2c5f2d;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #2c5f2d 0%, #1e4620 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            margin: 10px 0;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(44, 95, 45, 0.3);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        button.secondary {
+            background: #6c757d;
+        }
+        
+        button.danger {
+            background: #dc3545;
+        }
+        
+        #log {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-line {
+            padding: 3px 0;
+            line-height: 1.5;
+        }
+        
+        .success { color: #00ff00; }
+        .error { color: #ff4444; }
+        .info { color: #ffaa00; }
+        .warning { color: #ffa500; }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .status-badge.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-badge.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2c5f2d, #4caf50);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .warning-box h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌿 Ishiaya's Garden Bistro</h1>
+            <p>Complete Firebase Database Setup</p>
+        </div>
+        
+        <div class="content">
+            <div class="warning-box">
+                <h3>⚠️ Important Update:</h3>
+                <p><strong>Owner name changed from "Owner Account" to "Ishiaya's Garden Owner"</strong></p>
+                <p>After running this setup, the dashboard will display: "Welcome, Ishiaya's Garden Owner"</p>
+            </div>
+
+            <div class="step">
+                <h3>
+                    <span class="step-number">1</span>
+                    Add Users to Firebase Authentication
+                </h3>
+                <p>This will create authentication accounts for all employees</p>
+                <button id="addAuthBtn" onclick="addUsersToAuth()">
+                    🔐 Add Users to Firebase Auth
+                </button>
+                <div id="authProgress"></div>
+            </div>
+            
+            <div class="step">
+                <h3>
+                    <span class="step-number">2</span>
+                    Add Users to Firestore Database
+                </h3>
+                <p>This will save all employee information to the database</p>
+                <button id="addUsersBtn" onclick="addUsersToFirestore()">
+                    👥 Add Users to Firestore
+                </button>
+                <div id="usersProgress"></div>
+            </div>
+            
+            <div class="step">
+                <h3>
+                    <span class="step-number">3</span>
+                    Add Schedules
+                </h3>
+                <p>Add employee schedules to the database</p>
+                <button id="addSchedulesBtn" onclick="addSchedules()">
+                    📅 Add Schedules
+                </button>
+            </div>
+            
+            <div class="step">
+                <h3>
+                    <span class="step-number">4</span>
+                    Add Attendance Records
+                </h3>
+                <p>Add sample attendance records</p>
+                <button id="addAttendanceBtn" onclick="addAttendance()">
+                    📋 Add Attendance
+                </button>
+            </div>
+            
+            <div class="step">
+                <h3>
+                    <span class="step-number">5</span>
+                    Initialize Other Collections
+                </h3>
+                <p>Set up holidays, payroll, and settings</p>
+                <button id="initOthersBtn" onclick="initializeOthers()">
+                    ⚙️ Initialize Collections
+                </button>
+            </div>
+            
+            <button class="secondary" onclick="clearLog()">
+                🗑️ Clear Log
+            </button>
+            
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, addDoc, setDoc, doc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDh9cwDmEC5UBirud98e2nrSwLPJU27LlM",
+            authDomain: "ishiayasgardenbistro-fcafd.firebaseapp.com",
+            projectId: "ishiayasgardenbistro-fcafd",
+            storageBucket: "ishiayasgardenbistro-fcafd.firebasestorage.app",
+            messagingSenderId: "600218357249",
+            appId: "1:600218357249:web:79f75bcfd196f12b093a00",
+            measurementId: "G-XY6Y8HQHEJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const employees = [
+            { name: " Mrs. Rechie B. Sunga", email: 'ishiayasgardenbistrotabaco@gmail.com', password: 'ishiayagarden123', role: 'owner', position: 'Business Owner', phone: '09123456789', department: 'Management' },
+            { name: 'Admin Account', email: 'admin@ishiaya.com', password: 'admin123', role: 'admin', position: 'Manager', phone: '09123456789', department: 'Management' },
+            { name: 'Lionell Benavente', email: 'lionell@ishiaya.com', password: 'employee123', role: 'employee', position: 'General Manager', phone: '09111111111', department: 'Office', salary: '30000' },
+            { name: 'Nelly Concina', email: 'nelly@ishiaya.com', password: 'emp123', role: 'employee', position: 'Dispatcher', phone: '09111111112', department: 'Office', salary: '15000' },
+            { name: 'Arah Canosa', email: 'arah@ishiaya.com', password: 'emp123', role: 'employee', position: 'Office Secretary', phone: '09111111113', department: 'Office', salary: '15000' },
+            { name: 'Jonna Mae Bonos', email: 'jonna@ishiaya.com', password: 'emp123', role: 'employee', position: 'Cashier', phone: '09111111114', department: 'Office', salary: '14000' },
+            { name: 'Kristina Balicek', email: 'kristina@ishiaya.com', password: 'emp123', role: 'employee', position: 'Open Secretary', phone: '09111111115', department: 'Kitchen', salary: '14000' },
+            { name: 'Dante Perez', email: 'dante@ishiaya.com', password: 'emp123', role: 'employee', position: 'Friturist/Event Chef', phone: '09111111116', department: 'Kitchen', salary: '600' },
+            { name: 'Rolando Bobis', email: 'rolando@ishiaya.com', password: 'emp123', role: 'employee', position: 'Fritarier', phone: '09111111117', department: 'Kitchen', salary: '550' },
+            { name: 'Jennefer Gonzales', email: 'jennefer@ishiaya.com', password: 'emp123', role: 'employee', position: 'Dovic Chef', phone: '09111111118', department: 'Kitchen', salary: '550' },
+            { name: 'Juellelie Viray', email: 'juellelie@ishiaya.com', password: 'emp123', role: 'employee', position: 'Event Chef', phone: '09111111119', department: 'Kitchen', salary: '600' },
+            { name: 'Jorge Nobleza', email: 'jorge@ishiaya.com', password: 'emp123', role: 'employee', position: 'Garde Manger', phone: '09111111120', department: 'Kitchen', salary: '550' },
+            { name: 'Nardito Brusola', email: 'nardito@ishiaya.com', password: 'emp123', role: 'employee', position: 'Garde Chef', phone: '09111111121', department: 'Kitchen', salary: '550' },
+            { name: 'Rogelio Baltazar III', email: 'rogelio@ishiaya.com', password: 'emp123', role: 'employee', position: 'Garde Chef', phone: '09111111122', department: 'Kitchen', salary: '550' },
+            { name: 'John Lester Cornelio', email: 'johnlester@ishiaya.com', password: 'emp123', role: 'employee', position: 'Fritarier', phone: '09111111123', department: 'Kitchen', salary: '550' },
+            { name: 'John Kennedy Caudilla', email: 'johnkennedy@ishiaya.com', password: 'emp123', role: 'employee', position: 'Garde Chef', phone: '09111111124', department: 'Kitchen', salary: '550' },
+            { name: 'Isidro Bibat', email: 'isidro@ishiaya.com', password: 'emp123', role: 'employee', position: 'Food Attendant', phone: '09111111125', department: 'Food Attendant', salary: '500' },
+            { name: 'Dharwin Hamwat', email: 'dharwin@ishiaya.com', password: 'emp123', role: 'employee', position: 'Food Attendant', phone: '09111111126', department: 'Food Attendant', salary: '500' },
+            { name: 'Janneza Bobis', email: 'janneza@ishiaya.com', password: 'emp123', role: 'employee', position: 'Food Attendant', phone: '09111111127', department: 'Food Attendant', salary: '500' },
+            { name: 'Jeanne Benitez', email: 'jeanne@ishiaya.com', password: 'emp123', role: 'employee', position: 'Food Attendant', phone: '09111111128', department: 'Food Attendant', salary: '500' },
+            { name: 'Catherine Cao', email: 'catherine@ishiaya.com', password: 'emp123', role: 'employee', position: 'Food Attendant', phone: '09111111129', department: 'Food Attendant', salary: '500' },
+            { name: 'Elvie Segarra', email: 'elvie@ishiaya.com', password: 'emp123', role: 'employee', position: 'Food Attendant', phone: '09111111130', department: 'Food Attendant', salary: '500' },
+            { name: 'Mar John Casquejo', email: 'marjohn@ishiaya.com', password: 'emp123', role: 'employee', position: 'Food Attendant', phone: '09111111131', department: 'Food Attendant', salary: '500' },
+            { name: 'Justine Tero', email: 'justine@ishiaya.com', password: 'emp123', role: 'employee', position: 'Food Attendant', phone: '09111111132', department: 'Food Attendant', salary: '500' },
+            { name: 'Raiza Ballazar', email: 'raiza@ishiaya.com', password: 'emp123', role: 'employee', position: 'Food Attendant', phone: '09111111133', department: 'Food Attendant', salary: '500' },
+            { name: 'Hazel Grace Bilbar', email: 'hazel@ishiaya.com', password: 'emp123', role: 'employee', position: 'Food Attendant', phone: '09111111134', department: 'Food Attendant', salary: '500' },
+            { name: 'Emar Jann Cano', email: 'emar@ishiaya.com', password: 'emp123', role: 'employee', position: 'Food Attendant', phone: '09111111135', department: 'Food Attendant', salary: '500' },
+            { name: 'Danny Borbe', email: 'danny@ishiaya.com', password: 'emp123', role: 'employee', position: 'Purchasing Officer', phone: '09111111136', department: 'Dishwasher', salary: '480' },
+            { name: 'Richard Bonos', email: 'richard@ishiaya.com', password: 'emp123', role: 'employee', position: 'Dishwasher/Driver', phone: '09111111137', department: 'Dishwasher', salary: '450' },
+            { name: 'Winsel Cuentas', email: 'winsel@ishiaya.com', password: 'emp123', role: 'employee', position: 'Dishwasher', phone: '09111111138', department: 'Dishwasher', salary: '450' },
+            { name: 'Rryan Paul Capitin', email: 'rryan@ishiaya.com', password: 'emp123', role: 'employee', position: 'Janard', phone: '09111111139', department: 'Dishwasher', salary: '450' },
+            { name: 'Jofel Chavez', email: 'jofel@ishiaya.com', password: 'emp123', role: 'employee', position: 'Dishwasher', phone: '09111111140', department: 'Dishwasher', salary: '450' },
+            { name: 'Roger Bron', email: 'roger@ishiaya.com', password: 'emp123', role: 'employee', position: 'Guard', phone: '09111111141', department: 'Watchman', salary: '480' },
+            { name: 'Arvin Clave', email: 'arvin@ishiaya.com', password: 'emp123', role: 'employee', position: 'Air', phone: '09111111142', department: 'Watchman', salary: '480' },
+            { name: 'Jeffrey Casaul', email: 'jeffrey@ishiaya.com', password: 'emp123', role: 'employee', position: 'Watchman', phone: '09111111143', department: 'Watchman', salary: '480' }
+        ];
+
+        window.userIdMap = {};
+
+        window.log = function(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div class="log-line ${type}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        window.updateProgress = function(containerId, current, total) {
+            const container = document.getElementById(containerId);
+            const percent = Math.round((current / total) * 100);
+            container.innerHTML = `
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${percent}%">
+                        ${current} / ${total} (${percent}%)
+                    </div>
+                </div>
+            `;
+        }
+
+        window.addUsersToAuth = async function() {
+            const btn = document.getElementById('addAuthBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Adding users to Auth...';
+            
+            log('🔐 Starting Firebase Authentication setup...', 'info');
+            
+            let success = 0;
+            let errors = 0;
+            
+            for (let i = 0; i < employees.length; i++) {
+                const emp = employees[i];
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, emp.email, emp.password);
+                    window.userIdMap[emp.email] = userCredential.user.uid;
+                    success++;
+                    log(`  ✓ Created auth for: ${emp.name}`, 'success');
+                    updateProgress('authProgress', i + 1, employees.length);
+                } catch (error) {
+                    if (error.code === 'auth/email-already-in-use') {
+                        log(`  ⚠ Already exists: ${emp.name}`, 'warning');
+                    } else {
+                        errors++;
+                        log(`  ✗ Error for ${emp.name}: ${error.message}`, 'error');
+                    }
+                }
+            }
+            
+            log(`\n✅ Auth setup complete! Success: ${success}, Errors: ${errors}`, 'success');
+            btn.disabled = false;
+            btn.textContent = '✓ Auth Users Added';
+        }
+
+        window.addUsersToFirestore = async function() {
+            const btn = document.getElementById('addUsersBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Adding users to Firestore...';
+            
+            log('\n👥 Adding users to Firestore...', 'info');
+            
+            let success = 0;
+            
+            for (let i = 0; i < employees.length; i++) {
+                const emp = employees[i];
+                try {
+                    const userId = window.userIdMap[emp.email] || `user_${Date.now()}_${i}`;
+                    const userData = {
+                        name: emp.name,
+                        email: emp.email,
+                        role: emp.role,
+                        position: emp.position,
+                        phone: emp.phone || '',
+                        department: emp.department || '',
+                        salary: emp.salary || '0',
+                        createdAt: new Date().toISOString(),
+                        status: 'active'
+                    };
+                    
+                    await setDoc(doc(db, 'users', userId), userData);
+                    window.userIdMap[emp.email] = userId;
+                    success++;
+                    log(`  ✓ Added to Firestore: ${emp.name}`, 'success');
+                    updateProgress('usersProgress', i + 1, employees.length);
+                } catch (error) {
+                    log(`  ✗ Error for ${emp.name}: ${error.message}`, 'error');
+                }
+            }
+            
+            log(`\n✅ Firestore users added! Total: ${success}`, 'success');
+            btn.disabled = false;
+            btn.textContent = '✓ Users Added to Firestore';
+        }
+
+        window.addSchedules = async function() {
+            const btn = document.getElementById('addSchedulesBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Adding schedules...';
+            
+            log('\n📅 Adding schedules...', 'info');
+            
+            const schedules = [
+                { email: 'lionell@ishiaya.com', day: 'Monday', timeIn: '08:00', timeOut: '17:00', shift: 'Office', station: 'Office' },
+                { email: 'lionell@ishiaya.com', day: 'Tuesday', timeIn: '08:00', timeOut: '17:00', shift: 'Office', station: 'Office' },
+                { email: 'dante@ishiaya.com', day: 'Monday', timeIn: '07:00', timeOut: '16:00', shift: 'Opening', station: 'Fryer' },
+                { email: 'isidro@ishiaya.com', day: 'Tuesday', timeIn: '10:00', timeOut: '19:00', shift: 'Opening', station: 'Food Attendant' }
+            ];
+            
+            for (const schedule of schedules) {
+                const userId = window.userIdMap[schedule.email];
+                if (userId) {
+                    await addDoc(collection(db, 'schedules'), {
+                        userId,
+                        day: schedule.day,
+                        timeIn: schedule.timeIn,
+                        timeOut: schedule.timeOut,
+                        shift: schedule.shift,
+                        station: schedule.station,
+                        createdAt: new Date().toISOString()
+                    });
+                    log(`  ✓ Added schedule for ${schedule.email} - ${schedule.day}`, 'success');
+                }
+            }
+            
+            log('\n✅ Schedules added!', 'success');
+            btn.disabled = false;
+            btn.textContent = '✓ Schedules Added';
+        }
+
+        window.addAttendance = async function() {
+            const btn = document.getElementById('addAttendanceBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Adding attendance...';
+            
+            log('\n📋 Adding attendance records...', 'info');
+            
+            const today = new Date().toISOString().split('T')[0];
+            const attendance = [
+                { email: 'lionell@ishiaya.com', timeIn: '08:05', timeOut: null, status: 'late', lateMinutes: 5 },
+                { email: 'dante@ishiaya.com', timeIn: '07:10', timeOut: '16:05', status: 'present', hoursWorked: 8.92 }
+            ];
+            
+            for (const record of attendance) {
+                const userId = window.userIdMap[record.email];
+                if (userId) {
+                    await addDoc(collection(db, 'attendance'), {
+                        userId,
+                        date: today,
+                        timeIn: record.timeIn,
+                        timeOut: record.timeOut,
+                        status: record.status,
+                        lateMinutes: record.lateMinutes || 0,
+                        hoursWorked: record.hoursWorked || 0,
+                        createdAt: new Date().toISOString()
+                    });
+                    log(`  ✓ Added attendance for ${record.email}`, 'success');
+                }
+            }
+            
+            log('\n✅ Attendance records added!', 'success');
+            btn.disabled = false;
+            btn.textContent = '✓ Attendance Added';
+        }
+
+        window.initializeOthers = async function() {
+            const btn = document.getElementById('initOthersBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Initializing...';
+            
+            log('\n⚙️ Initializing other collections...', 'info');
+            
+            // Add sample holiday
+            await addDoc(collection(db, 'holidays'), {
+                name: 'New Year',
+                date: '2025-01-01',
+                type: 'regular',
+                createdAt: new Date().toISOString()
+            });
+            log('  ✓ Holidays collection initialized', 'success');
+            
+            // Add payroll placeholder
+            await addDoc(collection(db, 'payroll'), {
+                period: 'November 2025',
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            });
+            log('  ✓ Payroll collection initialized', 'success');
+            
+            // Add settings
+            await setDoc(doc(db, 'settings', 'general'), {
+                companyName: 'Ishiaya\'s Garden Bistro',
+                workHoursPerDay: 8,
+                overtimeRate: 1.25,
+                createdAt: new Date().toISOString()
+            });
+            log('  ✓ Settings initialized', 'success');
+            
+            log('\n🎉 All collections initialized!', 'success');
+            log('\n📝 Important: Owner name has been updated to "Ishiaya\'s Garden Owner"', 'info');
+            log('   Login and you will see: Welcome, Ishiaya\'s Garden Owner', 'info');
+            btn.disabled = false;
+            btn.textContent = '✓ Collections Initialized';
+        }
+    </script>
+</body>
+</html>
