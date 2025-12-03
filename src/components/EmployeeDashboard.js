@@ -1,909 +1,839 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createNotification } from '../config/firebase-config';
 import { useNavigate } from 'react-router-dom';
-import { 
-    getAllAttendance,
-    getEmployeeSchedule,
-    calculateDayHours,
-    calculateWeeklyHours,
-    getWorkingDaysCount,
-    listenToScheduleChanges,
-    requestNotificationPermission
+import {
+getAllAttendance,
+getEmployeeSchedule,
+calculateDayHours,
+calculateWeeklyHours,
+getWorkingDaysCount,
+listenToScheduleChanges,
+requestNotificationPermission
 } from '../config/firebase-config';
 import '../styles/Dashboard.css';
 
 function EmployeeDashboard() {
-    const navigate = useNavigate();
-    const [currentUser, setCurrentUser] = useState(null);
-    const [myAttendance, setMyAttendance] = useState([]);
-    const [mySchedule, setMySchedule] = useState(null);
-    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [isClockedIn, setIsClockedIn] = useState(false);
-    const [todayRecord, setTodayRecord] = useState(null);
-    const [currentTime, setCurrentTime] = useState(new Date());
-    const [activeSection, setActiveSection] = useState('dashboard');
-    const [showScheduleUpdateAlert, setShowScheduleUpdateAlert] = useState(false);
+const navigate = useNavigate();
+const [currentUser, setCurrentUser] = useState(null);
+const [myAttendance, setMyAttendance] = useState([]);
+const [mySchedule, setMySchedule] = useState(null);
+const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+const [loading, setLoading] = useState(true);
+const [isClockedIn, setIsClockedIn] = useState(false);
+const [todayRecord, setTodayRecord] = useState(null);
+const [currentTime, setCurrentTime] = useState(new Date());
+const [activeSection, setActiveSection] = useState('dashboard');
+const [showScheduleUpdateAlert, setShowScheduleUpdateAlert] = useState(false);
 
-    const [isEditingProfile, setIsEditingProfile] = useState(false);
-    const [profileForm, setProfileForm] = useState({
-        name: '',
-        email: '',
-        position: '',
-        phone: '',
-        address: ''
-    });
+const [isEditingProfile, setIsEditingProfile] = useState(false);
+const [profileForm, setProfileForm] = useState({
+name: '',
+email: '',
+position: '',
+phone: '',
+address: ''
+});
 
+const loadMySchedule = async (userId) => {
+try {
+console.log('📅 Loading schedule for employee:', userId);
+const schedule = await getEmployeeSchedule(userId);
+setMySchedule(schedule);
+console.log('✅ Schedule loaded:', schedule);
+} catch (error) {
+console.error('❌ Error loading schedule:', error);
+}
+};
 
-    const loadMySchedule = async (userId) => {
-        try {
-            console.log('📅 Loading schedule for employee:', userId);
-            const schedule = await getEmployeeSchedule(userId);
-            setMySchedule(schedule);
-            console.log('✅ Schedule loaded:', schedule);
-        } catch (error) {
-            console.error('❌ Error loading schedule:', error);
-        }
-    };
+const loadData = useCallback(async (user) => {
+try {
+setLoading(true);
+const attendanceData = await getAllAttendance() || [];
 
-    const loadData = useCallback(async (user) => {
-        try {
-            setLoading(true);
-            const attendanceData = await getAllAttendance() || [];
+const myRecords = attendanceData.filter(a => a.userId === user.id);
+setMyAttendance(myRecords);
 
-            const myRecords = attendanceData.filter(a => a.userId === user.id);
-            setMyAttendance(myRecords);
+const today = new Date().toISOString().split('T')[0];
+const todayRec = myRecords.find(a => a.date === today);
 
-            const today = new Date().toISOString().split('T')[0];
-            const todayRec = myRecords.find(a => a.date === today);
-            
-            if (todayRec) {
-                setTodayRecord(todayRec);
-                const clockedIn = !todayRec.timeOut;
-                setIsClockedIn(clockedIn);
-            } else {
-                setTodayRecord(null);
-                setIsClockedIn(false);
-            }
+if (todayRec) {
+setTodayRecord(todayRec);
+const clockedIn = !todayRec.timeOut;
+setIsClockedIn(clockedIn);
+} else {
+setTodayRecord(null);
+setIsClockedIn(false);
+}
 
-          
-            await loadMySchedule(user.id);
-        } catch (error) {
-            console.error('Error loading data:', error);
-            setMyAttendance([]);
-            setTodayRecord(null);
-            setIsClockedIn(false);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+await loadMySchedule(user.id);
+} catch (error) {
+console.error('Error loading data:', error);
+setMyAttendance([]);
+setTodayRecord(null);
+setIsClockedIn(false);
+} finally {
+setLoading(false);
+}
+}, []);
 
-    useEffect(() => {
-        const user = JSON.parse(sessionStorage.getItem('currentUser'));
-        if (!user || user.role !== 'employee') {
-            navigate('/');
-            return;
-        }
-        
-        setCurrentUser(user);
-        setProfileForm({
-            name: user.name || '',
-            email: user.email || '',
-            position: user.position || '',
-            phone: user.phone || '',
-            address: user.address || ''
-        });
-        loadData(user);
+useEffect(() => {
+const user = JSON.parse(sessionStorage.getItem('currentUser'));
+if (!user || user.role !== 'employee') {
+navigate('/');
+return;
+}
 
-       
-        requestNotificationPermission();
+setCurrentUser(user);
+setProfileForm({
+name: user.name || '',
+email: user.email || '',
+position: user.position || '',
+phone: user.phone || '',
+address: user.address || ''
+});
+loadData(user);
 
-       
-        const unsubscribe = listenToScheduleChanges(user.id, (newSchedule) => {
-            console.log('🔔 Your schedule was updated!');
-            setMySchedule(newSchedule);
-            setShowScheduleUpdateAlert(true);
-            
-            
-            setTimeout(() => {
-                setShowScheduleUpdateAlert(false);
-            }, 5000);
-        });
-        
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        
-        return () => {
-            clearInterval(timer);
-            if (unsubscribe) unsubscribe();
-        };
-    }, [navigate, loadData]);
+requestNotificationPermission();
 
-    const handleClockIn = async () => {
-        try {
-            console.log('⏰ Starting clock in process...');
-            
-            const now = new Date();
-            const today = now.toISOString().split('T')[0];
-            const time = now.toTimeString().split(' ')[0];
+const unsubscribe = listenToScheduleChanges(user.id, (newSchedule) => {
+console.log('🔔 Your schedule was updated!');
+setMySchedule(newSchedule);
+setShowScheduleUpdateAlert(true);
 
-            const { addAttendance, addNotification, saveToLocalStorage } = await import('../config/firebase-config');
+setTimeout(() => {
+setShowScheduleUpdateAlert(false);
+}, 5000);
+});
 
-            console.log('📍 Clock in details:', { userId: currentUser.id, date: today, time });
+const timer = setInterval(() => setCurrentTime(new Date()), 1000);
 
-           
-            const attendanceId = await addAttendance({
-                userId: currentUser.id,
-                date: today,
-                timeIn: time,
-                timeOut: null,
-                status: 'Present'
-            });
+return () => {
+clearInterval(timer);
+if (unsubscribe) unsubscribe();
+};
+}, [navigate, loadData]);
 
-            console.log('✅ Attendance record created:', attendanceId);
+const handleClockIn = async () => {
+try {
+const now = new Date();
+const date = now.toISOString().split('T')[0];
+const time = now.toLocaleTimeString('en-US', {
+hour12: true,
+hour: '2-digit',
+minute: '2-digit',
+second: '2-digit'
+});
 
-            
-            const notification = await addNotification({
-                type: 'clock-in',
-                employeeId: currentUser.id,
-                employeeName: currentUser.name,
-                employeePosition: currentUser.position || 'Employee',
-                message: `${currentUser.name} clocked in at ${time}`,
-                time: time,
-                date: today,
-                read: false
-            });
+const attendanceRecord = {
+userId: currentUser.id,
+employeeName: currentUser.name,
+employeePosition: currentUser.position || 'Employee',
+profilePic: currentUser.profilePic || currentUser.profilePicture,
+date,
+timeIn: time,
+timeOut: null,
+status: 'Present',
+timestamp: now.toISOString()
+};
 
-            console.log('✅ Notification created:', notification);
-            
-            
-            saveToLocalStorage('notifications', notification);
-            
-            
-            window.dispatchEvent(new CustomEvent('notificationUpdate', { 
-                detail: { 
-                    type: 'clock-in',
-                    employeeName: currentUser.name,
-                    time: time,
-                    timestamp: Date.now()
-                } 
-            }));
-            
-           
-            localStorage.setItem('notification_trigger', JSON.stringify({
-                timestamp: Date.now(),
-                type: 'clock-in',
-                employeeName: currentUser.name,
-                time: time
-            }));
-            
-           
-            const newRecord = {
-                id: attendanceId,
-                userId: currentUser.id,
-                date: today,
-                timeIn: time,
-                timeOut: null,
-                status: 'Present'
-            };
-            
-          
-            setTodayRecord(newRecord);
-            setIsClockedIn(true);
-            
-            console.log('✅ State updated - isClockedIn:', true);
-            console.log('📊 Notification saved, admins should see it now');
+const { addDoc, collection } = await import('firebase/firestore');
+const { db } = await import('../config/firebase-config');
 
-            alert('✅ Clocked in successfully!\n\n📢 Admin and Owner have been notified.');
-            
-         
-            await loadData(currentUser);
-        } catch (error) {
-            console.error('❌ Error clocking in:', error);
-            alert('Failed to clock in: ' + error.message);
-        }
-    };
+const attendanceRef = collection(db, 'attendance');
+const docRef = await addDoc(attendanceRef, attendanceRecord);
 
-    const handleClockOut = async () => {
-        if (!todayRecord || !todayRecord.id) {
-            alert('❌ Error: No clock-in record found. Please contact your administrator.');
-            return;
-        }
+// Create notification for admin
+await createNotification({
+type: 'clock-in',
+employeeName: currentUser.name,
+employeePosition: currentUser.position || 'Employee',
+employeeId: currentUser.id,
+message: `${currentUser.name} clocked in at ${time}`,
+date,
+time,
+attendanceId: docRef.id,
+timestamp: now.toISOString()
+});
 
-        try {
-            console.log('⏰ Starting clock out process...');
-            console.log('📍 Today record:', todayRecord);
-            
-            const now = new Date();
-            const time = now.toTimeString().split(' ')[0];
-            const today = now.toISOString().split('T')[0];
+console.log('✅ Clock in successful with notification created');
 
-            const { updateAttendance, addNotification, saveToLocalStorage } = await import('../config/firebase-config');
+setIsClockedIn(true);
+alert(`✅ Clocked in successfully at ${time}`);
 
-            console.log('📍 Clock out details:', { attendanceId: todayRecord.id, time });
+// Reload data to update UI
+await loadData(currentUser);
+} catch (error) {
+console.error('❌ Clock in error:', error);
+alert('Failed to clock in: ' + error.message);
+}
+};
 
-           
-            await updateAttendance(todayRecord.id, {
-                timeOut: time
-            });
+const handleClockOut = async () => {
+try {
+const now = new Date();
+const date = now.toISOString().split('T')[0];
+const time = now.toLocaleTimeString('en-US', {
+hour12: true,
+hour: '2-digit',
+minute: '2-digit',
+second: '2-digit'
+});
 
-            console.log('✅ Attendance record updated');
+const { query, where, getDocs, updateDoc, doc, collection } = await import('firebase/firestore');
+const { db } = await import('../config/firebase-config');
 
-         
-            const notification = await addNotification({
-                type: 'clock-out',
-                employeeId: currentUser.id,
-                employeeName: currentUser.name,
-                employeePosition: currentUser.position || 'Employee',
-                message: `${currentUser.name} clocked out at ${time}`,
-                time: time,
-                date: today,
-                read: false
-            });
+const attendanceRef = collection(db, 'attendance');
+const q = query(attendanceRef,
+where('userId', '==', currentUser.id),
+where('date', '==', date)
+);
+const querySnapshot = await getDocs(q);
 
-            console.log('✅ Notification created:', notification);
-            
-            
-            saveToLocalStorage('notifications', notification);
-            
-          
-            window.dispatchEvent(new CustomEvent('notificationUpdate', { 
-                detail: { 
-                    type: 'clock-out',
-                    employeeName: currentUser.name,
-                    time: time,
-                    timestamp: Date.now()
-                } 
-            }));
-            
-           
-            localStorage.setItem('notification_trigger', JSON.stringify({
-                timestamp: Date.now(),
-                type: 'clock-out',
-                employeeName: currentUser.name,
-                time: time
-            }));
+if (!querySnapshot.empty) {
+const attendanceDoc = querySnapshot.docs[0];
+await updateDoc(doc(db, 'attendance', attendanceDoc.id), {
+timeOut: time,
+status: 'Present'
+});
 
-          
-            const updatedRecord = { ...todayRecord, timeOut: time };
-            setTodayRecord(updatedRecord);
-            setIsClockedIn(false);
+// Create notification for admin
+await createNotification({
+type: 'clock-out',
+employeeName: currentUser.name,
+employeePosition: currentUser.position || 'Employee',
+employeeId: currentUser.id,
+message: `${currentUser.name} clocked out at ${time}`,
+date,
+time,
+attendanceId: attendanceDoc.id,
+timestamp: now.toISOString()
+});
 
-            console.log('✅ State updated - isClockedIn:', false);
+console.log('✅ Clock out successful with notification created');
 
-            alert('✅ Clocked out successfully!\n\n📢 Admin and Owner have been notified.');
-            
-            
-            await loadData(currentUser);
-        } catch (error) {
-            console.error('❌ Error clocking out:', error);
-            console.error('❌ Error details:', error.code, error.message);
-            
-            
-            if (error.code === 'permission-denied') {
-                alert('❌ Permission denied. Please contact your administrator to check Firebase security rules.');
-            } else if (error.message.includes('Missing or insufficient permissions')) {
-                alert('❌ Permission error. Your account may not have proper access rights. Please contact your administrator.');
-            } else {
-                alert('❌ Failed to clock out: ' + error.message);
-            }
-        }
-    };
+setIsClockedIn(false);
+alert(`✅ Clocked out successfully at ${time}`);
 
-    const handleUpdateProfile = async (e) => {
-        e.preventDefault();
-        try {
-            const { updateUser } = await import('../config/firebase-config');
+// Reload data to update UI
+await loadData(currentUser);
+}
+} catch (error) {
+console.error('❌ Clock out error:', error);
+alert('Failed to clock out: ' + error.message);
+}
+};
 
-            await updateUser(currentUser.id, profileForm);
+const handleUpdateProfile = async (e) => {
+e.preventDefault();
+try {
+const { updateUser } = await import('../config/firebase-config');
 
-            const updatedUser = {
-                ...currentUser,
-                ...profileForm
-            };
-            sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
-            setCurrentUser(updatedUser);
+await updateUser(currentUser.id, profileForm);
 
-            console.log('✅ Profile updated successfully');
-            alert('Profile updated successfully!');
-            setIsEditingProfile(false);
-        } catch (error) {
-            console.error('Error updating profile:', error);
-            alert('Failed to update profile: ' + error.message);
-        }
-    };
+const updatedUser = {
+...currentUser,
+...profileForm
+};
+sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
+setCurrentUser(updatedUser);
 
-    const handleLogout = () => {
-        sessionStorage.removeItem('currentUser');
-        navigate('/');
-    };
+console.log('✅ Profile updated successfully');
+alert('Profile updated successfully!');
+setIsEditingProfile(false);
+} catch (error) {
+console.error('Error updating profile:', error);
+alert('Failed to update profile: ' + error.message);
+}
+};
 
-    const calculateHours = (timeIn, timeOut) => {
-        if (!timeOut) return 'N/A';
-        const [inH, inM] = timeIn.split(':').map(Number);
-        const [outH, outM] = timeOut.split(':').map(Number);
-        const hours = outH - inH + (outM - inM) / 60;
-        return hours.toFixed(2) + ' hrs';
-    };
+const handleLogout = () => {
+sessionStorage.removeItem('currentUser');
+navigate('/');
+};
 
-    const formatTime = (time) => {
-        if (!time) return '';
-        const [hours, minutes] = time.split(':');
-        const hour = parseInt(hours);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-        return `${displayHour}:${minutes} ${ampm}`;
-    };
+const calculateHours = (timeIn, timeOut) => {
+if (!timeOut) return 'N/A';
+const [inH, inM] = timeIn.split(':').map(Number);
+const [outH, outM] = timeOut.split(':').map(Number);
+const hours = outH - inH + (outM - inM) / 60;
+return hours.toFixed(2) + ' hrs';
+};
 
-    const getThisWeekSchedule = () => {
-        if (!mySchedule) return [];
-        
-        const today = new Date();
-        const currentDay = today.getDay();
-        const weekSchedule = [];
-        
-        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const dayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - currentDay);
-        
-        for (let i = 0; i < 7; i++) {
-            const date = new Date(startOfWeek);
-            date.setDate(startOfWeek.getDate() + i);
-            
-            const dayName = dayNames[i];
-            const daySchedule = mySchedule[dayName];
-            
-            const dateStr = date.toISOString().split('T')[0];
-            const isPast = date < today && date.toDateString() !== today.toDateString();
-            const isToday = date.toDateString() === today.toDateString();
-            
-            weekSchedule.push({
-                day: dayLabels[i],
-                date: dateStr,
-                shift: daySchedule.enabled 
-                    ? `${formatTime(daySchedule.start)} - ${formatTime(daySchedule.end)}`
-                    : 'Rest Day',
-                hours: daySchedule.enabled 
-                    ? calculateDayHours(daySchedule.start, daySchedule.end).toFixed(1) + ' hours'
-                    : '-',
-                status: isPast ? 'Attended' : isToday ? 'Today' : 'Scheduled',
-                enabled: daySchedule.enabled,
-                break: daySchedule.break || '-'
-            });
-        }
-        
-        return weekSchedule;
-    };
+const formatTime = (time) => {
+if (!time) return '';
+const [hours, minutes] = time.split(':');
+const hour = parseInt(hours);
+const ampm = hour >= 12 ? 'PM' : 'AM';
+const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+return `${displayHour}:${minutes} ${ampm}`;
+};
 
-    const getRegularHours = () => {
-        if (!mySchedule) return [];
-        
-        const workingDays = [];
-        const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-        
-        dayNames.forEach(day => {
-            if (mySchedule[day]?.enabled) {
-                workingDays.push({
-                    day: day.charAt(0).toUpperCase() + day.slice(1),
-                    start: mySchedule[day].start,
-                    end: mySchedule[day].end
-                });
-            }
-        });
+const getThisWeekSchedule = () => {
+if (!mySchedule) return [];
 
-        const groups = [];
-        let currentGroup = null;
+const today = new Date();
+const currentDay = today.getDay();
+const weekSchedule = [];
 
-        workingDays.forEach((day) => {
-            if (!currentGroup || 
-                currentGroup.start !== day.start || 
-                currentGroup.end !== day.end) {
-                if (currentGroup) groups.push(currentGroup);
-                currentGroup = {
-                    days: [day.day],
-                    start: day.start,
-                    end: day.end
-                };
-            } else {
-                currentGroup.days.push(day.day);
-            }
-        });
-        if (currentGroup) groups.push(currentGroup);
+const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const dayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-        return groups;
-    };
+const startOfWeek = new Date(today);
+startOfWeek.setDate(today.getDate() - currentDay);
 
-    const renderContent = () => {
-        if (loading) {
-            return (
-                <div style={{ textAlign: 'center', padding: '3rem' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
-                    <h2>Loading...</h2>
-                </div>
-            );
-        }
+for (let i = 0; i < 7; i++) {
+const date = new Date(startOfWeek);
+date.setDate(startOfWeek.getDate() + i);
 
-        switch (activeSection) {
-            case 'dashboard':
-                return renderDashboard();
-            case 'attendance':
-                return renderAttendance();
-            case 'schedule':
-                return renderSchedule();
-            case 'profile':
-                return renderProfile();
-            default:
-                return renderDashboard();
-        }
-    };
+const dayName = dayNames[i];
+const daySchedule = mySchedule[dayName];
 
-    const renderDashboard = () => (
-        <>
-            <div className="stats-grid">
-                <div className="stat-card">
-                    <h3>Total Days Worked</h3>
-                    <p className="stat-number">{myAttendance.length}</p>
-                </div>
-                <div className="stat-card">
-                    <h3>This Month</h3>
-                    <p className="stat-number">
-                        {myAttendance.filter(a => 
-                            a.date.startsWith(new Date().toISOString().slice(0, 7))
-                        ).length}
-                    </p>
-                </div>
-                <div className="stat-card">
-                    <h3>Status Today</h3>
-                    <p className="stat-number" style={{ fontSize: '1.5rem' }}>
-                        {isClockedIn ? '✓ Clocked In' : '✗ Not Clocked In'}
-                    </p>
-                </div>
-                <div className="stat-card">
-                    <h3>Position</h3>
-                    <p className="stat-number" style={{ fontSize: '1.5rem' }}>
-                        {currentUser?.position || 'Employee'}
-                    </p>
-                </div>
-            </div>
+const dateStr = date.toISOString().split('T')[0];
+const isPast = date < today && date.toDateString() !== today.toDateString();
+const isToday = date.toDateString() === today.toDateString();
 
-            <div className="dashboard-section">
-                <h2>Time Clock</h2>
-                <div style={{ textAlign: 'center', padding: '2rem' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#667eea', fontWeight: 'bold' }}>
-                        {currentTime.toLocaleTimeString()}
-                    </div>
-                    <div style={{ fontSize: '1.5rem', marginBottom: '2rem', color: '#7f8c8d' }}>
-                        {currentTime.toLocaleDateString('en-US', { 
-                            weekday: 'long', 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
-                        })}
-                    </div>
-                    {!isClockedIn ? (
-                        <button 
-                            className="btn-primary" 
-                            onClick={handleClockIn}
-                            style={{ fontSize: '1.2rem', padding: '1rem 3rem' }}
-                        >
-                            🕐 Clock In
-                        </button>
-                    ) : (
-                        <div>
-                            <p style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>
-                                Clocked in at: <strong>{todayRecord?.timeIn}</strong>
-                            </p>
-                            <button 
-                                className="btn-secondary" 
-                                onClick={handleClockOut}
-                                style={{ fontSize: '1.2rem', padding: '1rem 3rem' }}
-                            >
-                                🕐 Clock Out
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
+weekSchedule.push({
+day: dayLabels[i],
+date: dateStr,
+shift: daySchedule.enabled
+? `${formatTime(daySchedule.start)} - ${formatTime(daySchedule.end)}`
+: 'Rest Day',
+hours: daySchedule.enabled
+? calculateDayHours(daySchedule.start, daySchedule.end).toFixed(1) + ' hours'
+: '-',
+status: isPast ? 'Attended' : isToday ? 'Today' : 'Scheduled',
+enabled: daySchedule.enabled,
+break: daySchedule.break || '-'
+});
+}
 
-            <div className="dashboard-section">
-                <h2>Recent Attendance (Last 5)</h2>
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Time In</th>
-                            <th>Time Out</th>
-                            <th>Hours Worked</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {myAttendance.slice(-5).reverse().map((record, index) => (
-                            <tr key={index}>
-                                <td>{record.date}</td>
-                                <td>{record.timeIn}</td>
-                                <td>{record.timeOut || 'Not yet'}</td>
-                                <td>{calculateHours(record.timeIn, record.timeOut)}</td>
-                                <td>{record.status}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </>
-    );
+return weekSchedule;
+};
 
-    const renderAttendance = () => {
-        const thisMonth = myAttendance.filter(a => 
-            a.date.startsWith(new Date().toISOString().slice(0, 7))
-        );
-        const totalHours = myAttendance.reduce((total, record) => {
-            if (record.timeOut) {
-                const [inH, inM] = record.timeIn.split(':').map(Number);
-                const [outH, outM] = record.timeOut.split(':').map(Number);
-                const hours = outH - inH + (outM - inM) / 60;
-                return total + hours;
-            }
-            return total;
-        }, 0);
+const getRegularHours = () => {
+if (!mySchedule) return [];
 
-        return (
-            <div className="dashboard-section">
-                <h2>My Attendance History</h2>
-                
-                <div className="stats-grid" style={{ marginBottom: '2rem' }}>
-                    <div className="stat-card">
-                        <h3>Total Days</h3>
-                        <p className="stat-number">{myAttendance.length}</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>This Month</h3>
-                        <p className="stat-number">{thisMonth.length}</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>Total Hours</h3>
-                        <p className="stat-number">{totalHours.toFixed(1)}h</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>Average Hours/Day</h3>
-                        <p className="stat-number">
-                            {myAttendance.length > 0 ? (totalHours / myAttendance.length).toFixed(1) : '0'}h
-                        </p>
-                    </div>
-                </div>
+const workingDays = [];
+const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Day</th>
-                            <th>Time In</th>
-                            <th>Time Out</th>
-                            <th>Hours Worked</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {myAttendance.slice().reverse().map((record, index) => {
-                            const date = new Date(record.date);
-                            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-                            return (
-                                <tr key={index}>
-                                    <td>{record.date}</td>
-                                    <td>{dayName}</td>
-                                    <td>{record.timeIn}</td>
-                                    <td>{record.timeOut || 'Not yet'}</td>
-                                    <td>{calculateHours(record.timeIn, record.timeOut)}</td>
-                                    <td>
-                                        <span style={{
-                                            padding: '0.3rem 0.8rem',
-                                            borderRadius: '12px',
-                                            background: record.status === 'Present' ? '#d4edda' : '#f8d7da',
-                                            color: record.status === 'Present' ? '#155724' : '#721c24',
-                                            fontSize: '0.85rem',
-                                            fontWeight: '600'
-                                        }}>
-                                            {record.status}
-                                        </span>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
-        );
-    };
+dayNames.forEach(day => {
+if (mySchedule[day]?.enabled) {
+workingDays.push({
+day: day.charAt(0).toUpperCase() + day.slice(1),
+start: mySchedule[day].start,
+end: mySchedule[day].end
+});
+}
+});
 
-    const renderSchedule = () => {
-        const weekSchedule = getThisWeekSchedule();
-        const regularHours = getRegularHours();
-        const weeklyHours = mySchedule ? calculateWeeklyHours(mySchedule) : 0;
-        const workingDays = mySchedule ? getWorkingDaysCount(mySchedule) : 0;
+const groups = [];
+let currentGroup = null;
 
-        return (
-            <div style={{ padding: '2rem' }}>
-               {}
-                {showScheduleUpdateAlert && (
-                    <div style={{
-                        position: 'fixed',
-                        top: '20px',
-                        right: '20px',
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        color: 'white',
-                        padding: '1.5rem',
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                        zIndex: 9999,
-                        minWidth: '300px',
-                        animation: 'slideIn 0.3s ease-out'
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <span style={{ fontSize: '2rem' }}>📅</span>
-                            <div>
-                                <h3 style={{ margin: '0 0 0.5rem 0' }}>Schedule Updated!</h3>
-                                <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.9 }}>
-                                    Your work schedule has been updated by the administrator.
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setShowScheduleUpdateAlert(false)}
-                                style={{
-                                    background: 'rgba(255,255,255,0.3)',
-                                    border: 'none',
-                                    color: 'white',
-                                    width: '30px',
-                                    height: '30px',
-                                    borderRadius: '50%',
-                                    cursor: 'pointer',
-                                    fontSize: '1.2rem'
-                                }}
-                            >
-                                ×
-                            </button>
-                        </div>
-                    </div>
-                )}
+workingDays.forEach((day) => {
+if (!currentGroup ||
+currentGroup.start !== day.start ||
+currentGroup.end !== day.end) {
+if (currentGroup) groups.push(currentGroup);
+currentGroup = {
+days: [day.day],
+start: day.start,
+end: day.end
+};
+} else {
+currentGroup.days.push(day.day);
+}
+});
+if (currentGroup) groups.push(currentGroup);
 
-                <div style={{
-                    background: 'white',
-                    borderRadius: '12px',
-                    padding: '2rem',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                    marginBottom: '2rem'
-                }}>
-                    <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        📅 Work Schedule
-                    </h2>
+return groups;
+};
 
-                    {}
-                    <div style={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        borderRadius: '12px',
-                        padding: '1.5rem',
-                        color: 'white',
-                        marginBottom: '2rem'
-                    }}>
-                        <h3 style={{ margin: '0 0 1rem 0' }}>📊 Weekly Summary</h3>
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                            gap: '1rem'
-                        }}>
-                            <div>
-                                <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Working Days</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{workingDays} days</div>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Total Hours</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{weeklyHours.toFixed(1)} hrs</div>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Avg Hours/Day</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>
-                                    {workingDays > 0 ? (weeklyHours / workingDays).toFixed(1) : '0'} hrs
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+const renderContent = () => {
+if (loading) {
+return (
+<div style={{ textAlign: 'center', padding: '3rem' }}>
+<div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
+<h2>Loading...</h2>
+</div>
+);
+}
 
-                   {}
-                    <div style={{ marginBottom: '2rem' }}>
-                        <h3 style={{ marginBottom: '1rem' }}>Regular Working Hours</h3>
-                        {regularHours.length > 0 ? (
-                            regularHours.map((group, index) => (
-                                <div key={index} style={{
-                                    padding: '1rem',
-                                    background: '#f8f9fa',
-                                    borderRadius: '8px',
-                                    marginBottom: '0.5rem',
-                                    borderLeft: '4px solid #667eea'
-                                }}>
-                                    <strong>{group.days.length > 1 
-                                        ? `${group.days[0]} - ${group.days[group.days.length - 1]}`
-                                        : group.days[0]
-                                    }:</strong>{' '}
-                                    {formatTime(group.start)} - {formatTime(group.end)}
-                                </div>
-                            ))
-                        ) : (
-                            <p style={{ color: '#999' }}>No regular schedule set</p>
-                        )}
-                    </div>
+switch (activeSection) {
+case 'dashboard':
+return renderDashboard();
+case 'attendance':
+return renderAttendance();
+case 'schedule':
+return renderSchedule();
+case 'profile':
+return renderProfile();
+default:
+return renderDashboard();
+}
+};
 
-                    {}
-                    <h3 style={{ marginBottom: '1rem' }}>This Week Schedule</h3>
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{
-                            width: '100%',
-                            borderCollapse: 'collapse',
-                            background: 'white',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                        }}>
-                            <thead>
-                                <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>DAY</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>DATE</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>SHIFT</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>HOURS</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>STATUS</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {weekSchedule.map((day, index) => (
-                                    <tr key={index} style={{
-                                        borderBottom: '1px solid #dee2e6',
-                                        background: day.status === 'Today' ? '#fff3cd' : 'white'
-                                    }}>
-                                        <td style={{ padding: '1rem', fontWeight: day.status === 'Today' ? 'bold' : 'normal' }}>
-                                            {day.day}
-                                        </td>
-                                        <td style={{ padding: '1rem' }}>{day.date}</td>
-                                        <td style={{ padding: '1rem' }}>{day.shift}</td>
-                                        <td style={{ padding: '1rem' }}>{day.hours}</td>
-                                        <td style={{ padding: '1rem' }}>
-                                            <span style={{
-                                                padding: '0.3rem 0.8rem',
-                                                borderRadius: '12px',
-                                                fontSize: '0.85rem',
-                                                fontWeight: '600',
-                                                background: day.status === 'Attended' ? '#d4edda' :
-                                                           day.status === 'Today' ? '#fff3cd' : '#e7f3ff',
-                                                color: day.status === 'Attended' ? '#155724' :
-                                                       day.status === 'Today' ? '#856404' : '#004085'
-                                            }}>
-                                                {day.status}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+const renderDashboard = () => (
+<>
+<div className="stats-grid">
+<div className="stat-card">
+<h3>Total Days Worked</h3>
+<p className="stat-number">{myAttendance.length}</p>
+</div>
+<div className="stat-card">
+<h3>This Month</h3>
+<p className="stat-number">
+{myAttendance.filter(a =>
+a.date.startsWith(new Date().toISOString().slice(0, 7))
+).length}
+</p>
+</div>
+<div className="stat-card">
+<h3>Status Today</h3>
+<p className="stat-number" style={{ fontSize: '1.5rem' }}>
+{isClockedIn ? '✓ Clocked In' : '✗ Not Clocked In'}
+</p>
+</div>
+<div className="stat-card">
+<h3>Position</h3>
+<p className="stat-number" style={{ fontSize: '1.5rem' }}>
+{currentUser?.position || 'Employee'}
+</p>
+</div>
+</div>
 
-                    {/* Info Box */}
-                    <div style={{
-                        marginTop: '1.5rem',
-                        padding: '1rem',
-                        background: '#e7f3ff',
-                        borderRadius: '8px',
-                        fontSize: '0.9rem',
-                        color: '#004085',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem'
-                    }}>
-                        <span style={{ fontSize: '1.5rem' }}>ℹ️</span>
-                        <div>
-                            Your schedule updates automatically in real-time when changes are made by the administrator.
-                            You'll receive a notification when your schedule is updated.
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    };
+<div className="dashboard-section">
+<h2>Time Clock</h2>
+<div style={{ textAlign: 'center', padding: '2rem' }}>
+<div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#667eea', fontWeight: 'bold' }}>
+{currentTime.toLocaleTimeString()}
+</div>
+<div style={{ fontSize: '1.5rem', marginBottom: '2rem', color: '#7f8c8d' }}>
+{currentTime.toLocaleDateString('en-US', {
+weekday: 'long',
+year: 'numeric',
+month: 'long',
+day: 'numeric'
+})}
+</div>
+{!isClockedIn ? (
+<button
+className="btn-primary"
+onClick={handleClockIn}
+style={{ fontSize: '1.2rem', padding: '1rem 3rem' }}
+>
+🕐 Clock In
+</button>
+) : (
+<div>
+<p style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>
+Clocked in at: <strong>{todayRecord?.timeIn}</strong>
+</p>
+<button
+className="btn-secondary"
+onClick={handleClockOut}
+style={{ fontSize: '1.2rem', padding: '1rem 3rem' }}
+>
+🕐 Clock Out
+</button>
+</div>
+)}
+</div>
+</div>
 
-    const renderProfile = () => (
-        <div className="dashboard-section">
-            <h2>My Profile</h2>
-            
-            {!isEditingProfile ? (
-                <div style={{ maxWidth: '600px' }}>
-                    <div style={{ background: '#f8f9fa', padding: '2rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
-                            <div style={{
-                                width: '80px',
-                                height: '80px',
-                                borderRadius: '50%',
-                                background: '#667eea',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white',
-                                fontSize: '2rem',
-                                fontWeight: 'bold',
-                                marginRight: '1.5rem'
-                            }}>
-                                {currentUser?.name?.charAt(0) || 'E'}
-                            </div>
-                            <div>
-                                <h3 style={{ margin: '0 0 0.5rem 0' }}>{currentUser?.name}</h3>
-                                <p style={{ margin: 0, color: '#666' }}>{currentUser?.position || 'Employee'}</p>
-                            </div>
-                        </div>
+<div className="dashboard-section">
+<h2>Recent Attendance (Last 5)</h2>
+<table className="data-table">
+<thead>
+<tr>
+<th>Date</th>
+<th>Time In</th>
+<th>Time Out</th>
+<th>Hours Worked</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+{myAttendance.slice(-5).reverse().map((record, index) => (
+<tr key={index}>
+<td>{record.date}</td>
+<td>{record.timeIn}</td>
+<td>{record.timeOut || 'Not yet'}</td>
+<td>{calculateHours(record.timeIn, record.timeOut)}</td>
+<td>{record.status}</td>
+</tr>
+))}
+</tbody>
+</table>
+</div>
+</>
+);
 
-                        <div style={{ display: 'grid', gap: '1rem' }}>
-                            <div>
-                                <strong>Email:</strong>
-                                <p style={{ margin: '0.3rem 0 0 0', color: '#666' }}>{currentUser?.email}</p>
-                            </div>
-                            <div>
-                                <strong>Position:</strong>
-                                <p style={{ margin: '0.3rem 0 0 0', color: '#666' }}>{currentUser?.position || 'Not set'}</p>
-                            </div>
-                            <div>
-                                <strong>Phone:</strong>
-                                <p style={{ margin: '0.3rem 0 0 0', color: '#666' }}>{currentUser?.phone || 'Not set'}</p>
-                            </div>
-                            <div>
-                                <strong>Address:</strong>
-                                <p style={{ margin: '0.3rem 0 0 0', color: '#666' }}>{currentUser?.address || 'Not set'}</p>
-                            </div>
-                            <div>
-                                <strong>Employee ID:</strong>
-                                <p style={{ margin: '0.3rem 0 0 0', color: '#666' }}>{currentUser?.id}</p>
-                            </div>
-                        </div>
-                    </div>
+const renderAttendance = () => {
+const thisMonth = myAttendance.filter(a =>
+a.date.startsWith(new Date().toISOString().slice(0, 7))
+);
+const totalHours = myAttendance.reduce((total, record) => {
+if (record.timeOut) {
+const [inH, inM] = record.timeIn.split(':').map(Number);
+const [outH, outM] = record.timeOut.split(':').map(Number);
+const hours = outH - inH + (outM - inM) / 60;
+return total + hours;
+}
+return total;
+}, 0);
 
-                    <button 
-                        className="btn-primary" 
-                        onClick={() => setIsEditingProfile(true)}
-                    >
-                        ✏️ Edit Profile
-                    </button>
-                </div>
-            ) : (
-                <div style={{ maxWidth: '600px' }}>
-                    <form onSubmit={handleUpdateProfile}>
-                        <div style={{ display: 'grid', gap: '1rem', marginBottom: '1.5rem' }}>
-                            <div className="form-group">
-                                <label><strong>Full Name:</strong></label>
-                                <input
-                                    type="text"
-                                    value={profileForm.name}
-                                    onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
-                                    required
-                                    style={{ width: '100%', padding: '0.7rem', borderRadius: '4px', border: '1px solid #ddd' }}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label><strong>Email:</strong></label>
-                                <input
-                                    type="email"
-                                    value={profileForm.email}
-                                    onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
-                                    required
-                                    style={{ width: '100%', padding: '0.7rem', borderRadius: '4px', border: '1px solid #ddd' }}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label><strong>Position:</strong></label>
-                                <input
-                                    type="text"
-                                    value={profileForm.position}
-                                    onChange={(e) => setProfileForm({...profileForm, position: e.target.value})}
-                                    style={{ width: '100%', padding: '0.7rem', borderRadius: '4px', border: '1px solid #ddd' }}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label><strong>Phone:</strong></label>
-                                <input
-                                    type="tel"
-                                    value={profileForm.phone}
-                                    onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
-                                    style={{ width: '100%', padding: '0.7rem', borderRadius: '4px', border: '1px solid #ddd' }}
+return (
+<div className="dashboard-section">
+<h2>My Attendance History</h2>
+
+<div className="stats-grid" style={{ marginBottom: '2rem' }}>
+<div className="stat-card">
+<h3>Total Days</h3>
+<p className="stat-number">{myAttendance.length}</p>
+</div>
+<div className="stat-card">
+<h3>This Month</h3>
+<p className="stat-number">{thisMonth.length}</p>
+</div>
+<div className="stat-card">
+<h3>Total Hours</h3>
+<p className="stat-number">{totalHours.toFixed(1)}h</p>
+</div>
+<div className="stat-card">
+<h3>Average Hours/Day</h3>
+<p className="stat-number">
+{myAttendance.length > 0 ? (totalHours / myAttendance.length).toFixed(1) : '0'}h
+</p>
+</div>
+</div>
+
+<table className="data-table">
+<thead>
+<tr>
+<th>Date</th>
+<th>Day</th>
+<th>Time In</th>
+<th>Time Out</th>
+<th>Hours Worked</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+{myAttendance.slice().reverse().map((record, index) => {
+const date = new Date(record.date);
+const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+return (
+<tr key={index}>
+<td>{record.date}</td>
+<td>{dayName}</td>
+<td>{record.timeIn}</td>
+<td>{record.timeOut || 'Not yet'}</td>
+<td>{calculateHours(record.timeIn, record.timeOut)}</td>
+<td>
+<span style={{
+padding: '0.3rem 0.8rem',
+borderRadius: '12px',
+background: record.status === 'Present' ? '#d4edda' : '#f8d7da',
+color: record.status === 'Present' ? '#155724' : '#721c24',
+fontSize: '0.85rem',
+fontWeight: '600'
+}}>
+{record.status}
+</span>
+</td>
+</tr>
+);
+})}
+</tbody>
+</table>
+</div>
+);
+};
+
+const renderSchedule = () => {
+const weekSchedule = getThisWeekSchedule();
+const regularHours = getRegularHours();
+const weeklyHours = mySchedule ? calculateWeeklyHours(mySchedule) : 0;
+const workingDays = mySchedule ? getWorkingDaysCount(mySchedule) : 0;
+
+return (
+<div style={{ padding: '2rem' }}>
+{showScheduleUpdateAlert && (
+<div style={{
+position: 'fixed',
+top: '20px',
+right: '20px',
+background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+color: 'white',
+padding: '1.5rem',
+borderRadius: '12px',
+boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+zIndex: 9999,
+minWidth: '300px',
+animation: 'slideIn 0.3s ease-out'
+}}>
+<div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+<span style={{ fontSize: '2rem' }}>📅</span>
+<div>
+<h3 style={{ margin: '0 0 0.5rem 0' }}>Schedule Updated!</h3>
+<p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.9 }}>
+Your work schedule has been updated by the administrator.
+</p>
+</div>
+<button
+onClick={() => setShowScheduleUpdateAlert(false)}
+style={{
+background: 'rgba(255,255,255,0.3)',
+border: 'none',
+color: 'white',
+width: '30px',
+height: '30px',
+borderRadius: '50%',
+cursor: 'pointer',
+fontSize: '1.2rem'
+}}
+>
+×
+</button>
+</div>
+</div>
+)}
+
+<div style={{
+background: 'white',
+borderRadius: '12px',
+padding: '2rem',
+boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+marginBottom: '2rem'
+}}>
+<h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+📅 Work Schedule
+</h2>
+
+<div style={{
+background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+borderRadius: '12px',
+padding: '1.5rem',
+color: 'white',
+marginBottom: '2rem'
+}}>
+<h3 style={{ margin: '0 0 1rem 0' }}>📊 Weekly Summary</h3>
+<div style={{
+display: 'grid',
+gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+gap: '1rem'
+}}>
+<div>
+<div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Working Days</div>
+<div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{workingDays} days</div>
+</div>
+<div>
+<div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Total Hours</div>
+<div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{weeklyHours.toFixed(1)} hrs</div>
+</div>
+<div>
+<div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Avg Hours/Day</div>
+<div style={{ fontSize: '2rem', fontWeight: 'bold' }}>
+{workingDays > 0 ? (weeklyHours / workingDays).toFixed(1) : '0'} hrs
+</div>
+</div>
+</div>
+</div>
+
+<div style={{ marginBottom: '2rem' }}>
+<h3 style={{ marginBottom: '1rem' }}>Regular Working Hours</h3>
+{regularHours.length > 0 ? (
+regularHours.map((group, index) => (
+<div key={index} style={{
+padding: '1rem',
+background: '#f8f9fa',
+borderRadius: '8px',
+marginBottom: '0.5rem',
+borderLeft: '4px solid #667eea'
+}}>
+<strong>{group.days.length > 1
+? `${group.days[0]} - ${group.days[group.days.length - 1]}`
+: group.days[0]
+}:</strong>{' '}
+{formatTime(group.start)} - {formatTime(group.end)}
+</div>
+))
+) : (
+<p style={{ color: '#999' }}>No regular schedule set</p>
+)}
+</div>
+
+<h3 style={{ marginBottom: '1rem' }}>This Week Schedule</h3>
+<div style={{ overflowX: 'auto' }}>
+<table style={{
+width: '100%',
+borderCollapse: 'collapse',
+background: 'white',
+boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+}}>
+<thead>
+<tr style={{ background: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+<th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>DAY</th>
+<th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>DATE</th>
+<th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>SHIFT</th>
+<th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>HOURS</th>
+<th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>STATUS</th>
+</tr>
+</thead>
+<tbody>
+{weekSchedule.map((day, index) => (
+<tr key={index} style={{
+borderBottom: '1px solid #dee2e6',
+background: day.status === 'Today' ? '#fff3cd' : 'white'
+}}>
+<td style={{ padding: '1rem', fontWeight: day.status === 'Today' ? 'bold' : 'normal' }}>
+{day.day}
+</td>
+<td style={{ padding: '1rem' }}>{day.date}</td>
+<td style={{ padding: '1rem' }}>{day.shift}</td>
+<td style={{ padding: '1rem' }}>{day.hours}</td>
+<td style={{ padding: '1rem' }}>
+<span style={{
+padding: '0.3rem 0.8rem',
+borderRadius: '12px',
+fontSize: '0.85rem',
+fontWeight: '600',
+background: day.status === 'Attended' ? '#d4edda' :
+day.status === 'Today' ? '#fff3cd' : '#e7f3ff',
+color: day.status === 'Attended' ? '#155724' :
+day.status === 'Today' ? '#856404' : '#004085'
+}}>
+{day.status}
+</span>
+</td>
+</tr>
+))}
+</tbody>
+</table>
+</div>
+
+<div style={{
+marginTop: '1.5rem',
+padding: '1rem',
+background: '#e7f3ff',
+borderRadius: '8px',
+fontSize: '0.9rem',
+color: '#004085',
+display: 'flex',
+alignItems: 'center',
+gap: '0.5rem'
+}}>
+<span style={{ fontSize: '1.5rem' }}>ℹ️</span>
+<div>
+Your schedule updates automatically in real-time when changes are made by the administrator.
+You'll receive a notification when your schedule is updated.
+</div>
+</div>
+</div>
+</div>
+);
+};
+
+const renderProfile = () => (
+<div className="dashboard-section">
+<h2>My Profile</h2>
+
+{!isEditingProfile ? (
+<div style={{ maxWidth: '600px' }}>
+<div style={{ background: '#f8f9fa', padding: '2rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+<div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
+<div style={{
+width: '80px',
+height: '80px',
+borderRadius: '50%',
+background: '#667eea',
+display: 'flex',
+alignItems: 'center',
+justifyContent: 'center',
+color: 'white',
+fontSize: '2rem',
+fontWeight: 'bold',
+marginRight: '1.5rem'
+}}>
+{currentUser?.name?.charAt(0) || 'E'}
+</div>
+<div>
+<h3 style={{ margin: '0 0 0.5rem 0' }}>{currentUser?.name}</h3>
+<p style={{ margin: 0, color: '#666' }}>{currentUser?.position || 'Employee'}</p>
+</div>
+</div>
+
+<div style={{ display: 'grid', gap: '1rem' }}>
+<div>
+<strong>Email:</strong>
+<p style={{ margin: '0.3rem 0 0 0', color: '#666' }}>{currentUser?.email}</p>
+</div>
+<div>
+<strong>Position:</strong>
+<p style={{ margin: '0.3rem 0 0 0', color: '#666' }}>{currentUser?.position || 'Not set'}</p>
+</div>
+<div>
+<strong>Phone:</strong>
+<p style={{ margin: '0.3rem 0 0 0', color: '#666' }}>{currentUser?.phone || 'Not set'}</p>
+</div>
+<div>
+<strong>Address:</strong>
+<p style={{ margin: '0.3rem 0 0 0', color: '#666' }}>{currentUser?.address || 'Not set'}</p>
+</div>
+<div>
+<strong>Employee ID:</strong>
+<p style={{ margin: '0.3rem 0 0 0', color: '#666' }}>{currentUser?.id}</p>
+</div>
+</div>
+</div>
+
+<button
+className="btn-primary"
+onClick={() => setIsEditingProfile(true)}
+>
+✏️ Edit Profile
+</button>
+</div>
+) : (
+<div style={{ maxWidth: '600px' }}>
+<form onSubmit={handleUpdateProfile}>
+<div style={{ display: 'grid', gap: '1rem', marginBottom: '1.5rem' }}>
+<div className="form-group">
+<label><strong>Full Name:</strong></label>
+<input
+type="text"
+value={profileForm.name}
+onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
+required
+style={{ width: '100%', padding: '0.7rem', borderRadius: '4px', border: '1px solid #ddd' }}
+/>
+</div>
+<div className="form-group">
+<label><strong>Email:</strong></label>
+<input
+type="email"
+value={profileForm.email}
+onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
+required
+style={{ width: '100%', padding: '0.7rem', borderRadius: '4px', border: '1px solid #ddd' }}
+/>
+</div>
+<div className="form-group">
+<label><strong>Position:</strong></label>
+<input
+type="text"
+value={profileForm.position}
+onChange={(e) => setProfileForm({...profileForm, position: e.target.value})}
+style={{ width: '100%', padding: '0.7rem', borderRadius: '4px', border: '1px solid #ddd' }}
+/>
+</div>
+<div className="form-group">
+<label><strong>Phone:</strong></label>
+<input
+type="tel"
+value={profileForm.phone}
+onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
+style={{ width: '100%', padding: '0.7rem', borderRadius: '4px', border: '1px solid #ddd' }}
                                 />
                             </div>
                             <div className="form-group">

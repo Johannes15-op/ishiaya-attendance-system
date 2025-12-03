@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Users, Edit2, Save, X } from 'lucide-react';
 
-// Schedule Management Component
+
 const ScheduleManagement = () => {
   const [employees, setEmployees] = useState([]);
   const [schedules, setSchedules] = useState({});
@@ -9,7 +9,7 @@ const ScheduleManagement = () => {
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Default schedule template
+ 
   const defaultSchedule = {
     monday: { enabled: true, start: '08:00', end: '17:00', break: '12:00-13:00' },
     tuesday: { enabled: true, start: '08:00', end: '17:00', break: '12:00-13:00' },
@@ -27,7 +27,7 @@ const ScheduleManagement = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      // Simulated data - replace with actual firebase calls
+     
       const mockEmployees = [
         { id: '1', name: 'John Doe', position: 'Server', email: 'john@example.com' },
         { id: '2', name: 'Jane Smith', position: 'Cook', email: 'jane@example.com' },
@@ -66,7 +66,7 @@ const ScheduleManagement = () => {
 
   const handleSaveSchedule = async () => {
     try {
-      // Save to localStorage (replace with firebase save)
+
       localStorage.setItem('employee_schedules', JSON.stringify(schedules));
       alert('✅ Schedule saved successfully!');
       setEditMode(false);
@@ -101,7 +101,7 @@ const ScheduleManagement = () => {
 
   return (
     <div className="max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
+      {}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -136,7 +136,7 @@ const ScheduleManagement = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Employee List */}
+        {}
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center gap-2 mb-4">
             <Users className="w-5 h-5 text-blue-600" />
@@ -164,7 +164,7 @@ const ScheduleManagement = () => {
           </div>
         </div>
 
-        {/* Schedule Details */}
+        {}
         <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
           {selectedEmployee ? (
             <>
@@ -191,7 +191,7 @@ const ScheduleManagement = () => {
                     className={`border-2 rounded-lg p-4 transition ${getDayColor(schedule.enabled)}`}
                   >
                     <div className="flex items-start gap-4">
-                      {/* Day Enable Toggle */}
+                      {}
                       <div className="flex items-center">
                         <input
                           type="checkbox"
@@ -202,7 +202,7 @@ const ScheduleManagement = () => {
                         />
                       </div>
 
-                      {/* Day Name */}
+                      {}
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-800 capitalize mb-3">
                           {day}
@@ -210,7 +210,7 @@ const ScheduleManagement = () => {
 
                         {schedule.enabled ? (
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {/* Start Time */}
+                            {}
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Start Time
@@ -224,7 +224,7 @@ const ScheduleManagement = () => {
                               />
                             </div>
 
-                            {/* End Time */}
+                            {}
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
                                 End Time
@@ -238,7 +238,7 @@ const ScheduleManagement = () => {
                               />
                             </div>
 
-                            {/* Break Time */}
+                            {}
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Break (optional)
@@ -257,7 +257,7 @@ const ScheduleManagement = () => {
                           <p className="text-gray-500 italic">Rest Day</p>
                         )}
 
-                        {/* Hours Display */}
+                        {}
                         {schedule.enabled && schedule.start && schedule.end && (
                           <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
                             <Clock className="w-4 h-4" />
@@ -270,7 +270,7 @@ const ScheduleManagement = () => {
                 ))}
               </div>
 
-              {/* Weekly Summary */}
+              {}
               <div className="mt-6 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
                 <h3 className="font-semibold text-gray-800 mb-2">Weekly Summary</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">

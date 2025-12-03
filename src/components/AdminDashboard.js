@@ -1,376 +1,383 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-    getAllUsers, 
-    getAllAttendance, 
-    localDB, 
-    saveToLocalStorage, 
-    addUser,
-    deleteUser,
-    getAllEmployeeSchedules,
-    getEmployeeSchedule,
-    saveEmployeeSchedule,
-    getDefaultSchedule,
-    calculateDayHours,
-    calculateWeeklyHours,
-    getWorkingDaysCount
+import {
+getAllUsers,
+getAllAttendance,
+localDB,
+saveToLocalStorage,
+addUser,
+deleteUser,
+getAllEmployeeSchedules,
+getEmployeeSchedule,
+saveEmployeeSchedule,
+getDefaultSchedule,
+calculateDayHours,
+calculateWeeklyHours,
+getWorkingDaysCount,
+getAllNotifications,
+markNotificationAsRead,
+markAllNotificationsAsRead,
+clearAllNotifications
 } from '../config/firebase-config';
 import '../styles/Dashboard.css';
 import logo from '../assets/ishiaya.jpg';
 
 function AdminDashboard() {
-    const navigate = useNavigate();
-    const [currentUser, setCurrentUser] = useState(null);
-    const [users, setUsers] = useState([]);
-    const [attendance, setAttendance] = useState([]);
-    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('employees');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [showAddEmployee, setShowAddEmployee] = useState(false);
-    const [showProfileModal, setShowProfileModal] = useState(false);
-    const [profilePicPreview, setProfilePicPreview] = useState(null);
-    
-    const [notifications, setNotifications] = useState([]);
-    const [unreadCount, setUnreadCount] = useState(0);
-    const [showNotifications, setShowNotifications] = useState(false);
-    
+const navigate = useNavigate();
+const [currentUser, setCurrentUser] = useState(null);
+const [users, setUsers] = useState([]);
+const [attendance, setAttendance] = useState([]);
+const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+const [loading, setLoading] = useState(true);
+const [activeTab, setActiveTab] = useState('employees');
+const [searchTerm, setSearchTerm] = useState('');
+const [showAddEmployee, setShowAddEmployee] = useState(false);
+const [showProfileModal, setShowProfileModal] = useState(false);
+const [profilePicPreview, setProfilePicPreview] = useState(null);
 
-    const [payrollData, setPayrollData] = useState([]);
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-    const [showPayrollPreview, setShowPayrollPreview] = useState(false);
-    const [generatedPayroll, setGeneratedPayroll] = useState([]);
-    const [showFormalReport, setShowFormalReport] = useState(false);
-    const [searchPayrollEmployee, setSearchPayrollEmployee] = useState('');
-    
+const [notifications, setNotifications] = useState([]);
+const [unreadCount, setUnreadCount] = useState(0);
+const [showNotifications, setShowNotifications] = useState(false);
 
-    const [employeeSchedules, setEmployeeSchedules] = useState({});
-    const [selectedEmployee, setSelectedEmployee] = useState(null);
-    const [editingSchedule, setEditingSchedule] = useState(false);
-    const [tempSchedule, setTempSchedule] = useState(null);
-    
+const [payrollData, setPayrollData] = useState([]);
+const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+const [showPayrollPreview, setShowPayrollPreview] = useState(false);
+const [generatedPayroll, setGeneratedPayroll] = useState([]);
+const [showFormalReport, setShowFormalReport] = useState(false);
+const [searchPayrollEmployee, setSearchPayrollEmployee] = useState('');
 
-    const DAILY_RATE = 415.00;
-    const OVERTIME_RATE = 415.00 * 0.12; 
-    const HOLIDAY_RATE = 124.50;
-    const LATE_DEDUCTION = 50.00;
-    const SSS_RATE = 0.045;
-    const PHILHEALTH_RATE = 0.02;
-    const PAGIBIG_RATE = 0.02;
-    
-    const [newEmployee, setNewEmployee] = useState({
-        name: '',
-        email: '',
-        password: '',
-        role: 'employee',
-        position: '',
-        salary: '',
-        profilePic: null
-    });
+const [employeeSchedules, setEmployeeSchedules] = useState({});
+const [selectedEmployee, setSelectedEmployee] = useState(null);
+const [editingSchedule, setEditingSchedule] = useState(false);
+const [tempSchedule, setTempSchedule] = useState(null);
+const [searchScheduleEmployee, setSearchScheduleEmployee] = useState('');
 
-    const [stats, setStats] = useState({
-        totalRecords: 0,
-        thisMonth: 0,
-        activeToday: 0,
-        averageDaily: 0
-    });
+const DAILY_RATE = 415.00;
+const OVERTIME_RATE = 415.00 * 0.12;
+const HOLIDAY_RATE = 124.50;
+const LATE_DEDUCTION = 50.00;
+const SSS_RATE = 0.045;
+const PHILHEALTH_RATE = 0.02;
+const PAGIBIG_RATE = 0.02;
 
-    const loadData = async () => {
-        try {
-            setLoading(true);
-            
-            const { loadFromLocalStorage } = await import('../config/firebase-config');
-            loadFromLocalStorage();
-            
-            const usersData = await getAllUsers() || [];
-            const attendanceData = await getAllAttendance() || [];
-            const schedulesData = await getAllEmployeeSchedules() || {};
-            
-            setUsers(usersData);
-            setAttendance(attendanceData);
-            setEmployeeSchedules(schedulesData);
+const [newEmployee, setNewEmployee] = useState({
+name: '',
+email: '',
+password: '',
+role: 'employee',
+position: '',
+salary: '',
+profilePic: null
+});
 
-            const user = JSON.parse(sessionStorage.getItem('currentUser'));
-            const updatedUser = usersData.find(u => u.id === user.id);
-            if (updatedUser) {
-                const mergedUser = {
-                    ...updatedUser,
-                    profilePic: updatedUser.profilePicture || updatedUser.profilePic || user.profilePic,
-                    profilePicture: updatedUser.profilePicture || updatedUser.profilePic || user.profilePicture
-                };
-                setCurrentUser(mergedUser);
-                sessionStorage.setItem('currentUser', JSON.stringify(mergedUser));
-            }
-            
-            const today = new Date().toISOString().split('T')[0];
-            const currentMonth = new Date().toISOString().slice(0, 7);
-            const totalEmployees = usersData.filter(u => u.role === 'employee').length;
-            
-            setStats({
-                totalRecords: attendanceData.length,
-                thisMonth: attendanceData.filter(a => a.date.startsWith(currentMonth)).length,
-                activeToday: attendanceData.filter(a => a.date === today).length,
-                averageDaily: totalEmployees > 0 ? (attendanceData.length / totalEmployees).toFixed(1) : 0
-            });
-            
-            if (localDB.notifications) {
-                const allNotifications = localDB.notifications
-                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                setNotifications(allNotifications);
-                setUnreadCount(allNotifications.filter(n => !n.read).length);
-            } else {
-                setNotifications([]);
-                setUnreadCount(0);
-            }
-            
-            if (localDB && localDB.payroll) {
-                setPayrollData(localDB.payroll);
-            }
-        } catch (error) {
-            console.error('Error loading data:', error);
-            setUsers([]);
-            setAttendance([]);
-            setNotifications([]);
-            setEmployeeSchedules({});
-        } finally {
-            setLoading(false);
-        }
-    };
+const [stats, setStats] = useState({
+totalRecords: 0,
+thisMonth: 0,
+activeToday: 0,
+averageDaily: 0
+});
+
+const loadData = async () => {
+try {
+setLoading(true);
+
+const { loadFromLocalStorage } = await import('../config/firebase-config');
+loadFromLocalStorage();
+
+console.log('📊 Loading data for Admin Dashboard...');
+
+const usersData = await getAllUsers() || [];
+const attendanceData = await getAllAttendance() || [];
+const schedulesData = await getAllEmployeeSchedules() || {};
+
+setUsers(usersData);
+setAttendance(attendanceData);
+setEmployeeSchedules(schedulesData);
+
+const user = JSON.parse(sessionStorage.getItem('currentUser'));
+const updatedUser = usersData.find(u => u.id === user.id);
+if (updatedUser) {
+const mergedUser = {
+...updatedUser,
+profilePic: updatedUser.profilePicture || updatedUser.profilePic || user.profilePic,
+profilePicture: updatedUser.profilePicture || updatedUser.profilePic || user.profilePicture
+};
+setCurrentUser(mergedUser);
+sessionStorage.setItem('currentUser', JSON.stringify(mergedUser));
+}
+
+const today = new Date().toISOString().split('T')[0];
+const currentMonth = new Date().toISOString().slice(0, 7);
+const totalEmployees = usersData.filter(u => u.role === 'employee').length;
+
+setStats({
+totalRecords: attendanceData.length,
+thisMonth: attendanceData.filter(a => a.date.startsWith(currentMonth)).length,
+activeToday: attendanceData.filter(a => a.date === today).length,
+averageDaily: totalEmployees > 0 ? (attendanceData.length / totalEmployees).toFixed(1) : 0
+});
+
+console.log('🔔 Loading notifications from Firebase...');
+const allNotifications = await getAllNotifications();
+
+console.log('✅ Loaded notifications:', allNotifications.length);
+console.log('📝 Notifications:', allNotifications);
+
+const sorted = allNotifications.sort((a, b) =>
+new Date(b.timestamp) - new Date(a.timestamp)
+);
+
+setNotifications(sorted);
+setUnreadCount(sorted.filter(n => !n.read).length);
+
+console.log('🔔 Set notifications state:', sorted.length);
+console.log('🔴 Unread count:', sorted.filter(n => !n.read).length);
+
+if (localDB && localDB.payroll) {
+setPayrollData(localDB.payroll);
+}
+} catch (error) {
+console.error('Error loading data:', error);
+setUsers([]);
+setAttendance([]);
+setNotifications([]);
+setEmployeeSchedules({});
+} finally {
+setLoading(false);
+}
+};
 
 useEffect(() => {
-    const user = JSON.parse(sessionStorage.getItem('currentUser'));
-    if (!user || user.role !== 'admin') {
-        navigate('/');
-        return;
-    }
-    setCurrentUser(user);
-    loadData();
+const user = JSON.parse(sessionStorage.getItem('currentUser'));
+if (!user || user.role !== 'admin') {
+navigate('/');
+return;
+}
+setCurrentUser(user);
+loadData();
 
-    const handleNotificationUpdate = (e) => {
-        console.log('🔔 Admin: Notification update detected', e?.detail);
-      
-        const { loadFromLocalStorage } = require('../config/firebase-config');
-        loadFromLocalStorage();
-        loadData();
-    };
-    
+const handleNotificationUpdate = (e) => {
+console.log('🔔 Admin: Notification update detected', e?.detail);
+const { loadFromLocalStorage } = require('../config/firebase-config');
+loadFromLocalStorage();
+loadData();
+};
 
-    window.addEventListener('notificationUpdate', handleNotificationUpdate);
-    
-  
-    const handleStorageChange = (e) => {
-        if (e.key === 'ishiaya_notifications' || e.key === 'notification_trigger' || e.key === 'ishiayaDB') {
-            console.log('🔔 Admin: Storage change detected:', e.key);
-            loadData();
-        }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    
+window.addEventListener('notificationUpdate', handleNotificationUpdate);
 
-    const pollInterval = setInterval(() => {
-        const { loadFromLocalStorage, localDB } = require('../config/firebase-config');
-        loadFromLocalStorage();
-        
-        const currentNotifCount = notifications.length;
-        const newNotifCount = localDB.notifications?.length || 0;
-        
-        if (newNotifCount !== currentNotifCount) {
-            console.log('🔔 Admin: New notifications detected via polling');
-            loadData();
-        }
-    }, 3000);
-    
-    return () => {
-        window.removeEventListener('notificationUpdate', handleNotificationUpdate);
-        window.removeEventListener('storage', handleStorageChange);
-        clearInterval(pollInterval);
-    };
+const handleStorageChange = (e) => {
+if (e.key === 'ishiaya_notifications' || e.key === 'notification_trigger' || e.key === 'ishiayaDB') {
+console.log('🔔 Admin: Storage change detected:', e.key);
+loadData();
+}
+};
+window.addEventListener('storage', handleStorageChange);
+
+const pollInterval = setInterval(() => {
+const { loadFromLocalStorage, localDB } = require('../config/firebase-config');
+loadFromLocalStorage();
+
+const currentNotifCount = notifications.length;
+const newNotifCount = localDB.notifications?.length || 0;
+
+if (newNotifCount !== currentNotifCount) {
+console.log('🔔 Admin: New notifications detected via polling');
+loadData();
+}
+}, 3000);
+
+return () => {
+window.removeEventListener('notificationUpdate', handleNotificationUpdate);
+window.removeEventListener('storage', handleStorageChange);
+clearInterval(pollInterval);
+};
 }, [navigate, notifications.length]);
 
-    const getProfilePicture = (user) => {
-        if (user?.profilePic) return user.profilePic;
-        if (user?.profilePicture) return user.profilePicture;
-        return null;
-    };
+const getProfilePicture = (user) => {
+if (user?.profilePic) return user.profilePic;
+if (user?.profilePicture) return user.profilePicture;
+return null;
+};
 
-    const getInitials = (name) => {
-        if (!name) return '?';
-        const parts = name.split(' ');
-        if (parts.length >= 2) {
-            return parts[0][0] + parts[parts.length - 1][0];
-        }
-        return name.substring(0, 2);
-    };
+const getInitials = (name) => {
+if (!name) return '?';
+const parts = name.split(' ');
+if (parts.length >= 2) {
+return parts[0][0] + parts[parts.length - 1][0];
+}
+return name.substring(0, 2);
+};
 
-    const handleProfilePicChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setProfilePicPreview(reader.result);
-                setNewEmployee({...newEmployee, profilePic: reader.result});
-            };
-            reader.readAsDataURL(file);
-        }
-    };
+const handleProfilePicChange = (e) => {
+const file = e.target.files[0];
+if (file) {
+const reader = new FileReader();
+reader.onloadend = () => {
+setProfilePicPreview(reader.result);
+setNewEmployee({...newEmployee, profilePic: reader.result});
+};
+reader.readAsDataURL(file);
+}
+};
 
-    const handleUpdateProfilePic = async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                try {
-                    const { updateUserProfilePicture } = await import('../config/firebase-config');
-                    await updateUserProfilePicture(currentUser.id, reader.result);
-                    const updatedUser = { 
-                        ...currentUser, 
-                        profilePic: reader.result, 
-                        profilePicture: reader.result 
-                    };
-                    setCurrentUser(updatedUser);
-                    sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
-                    alert('Profile picture updated successfully!');
-                    setShowProfileModal(false);
-                    await loadData();
-                } catch (error) {
-                    console.error('Error updating profile picture:', error);
-                    alert('Failed to update profile picture: ' + error.message);
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-    };
+const handleUpdateProfilePic = async (e) => {
+const file = e.target.files[0];
+if (file) {
+const reader = new FileReader();
+reader.onloadend = async () => {
+try {
+const { updateUserProfilePicture } = await import('../config/firebase-config');
+await updateUserProfilePicture(currentUser.id, reader.result);
+const updatedUser = {
+...currentUser,
+profilePic: reader.result,
+profilePicture: reader.result
+};
+setCurrentUser(updatedUser);
+sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
+alert('Profile picture updated successfully!');
+setShowProfileModal(false);
+await loadData();
+} catch (error) {
+console.error('Error updating profile picture:', error);
+alert('Failed to update profile picture: ' + error.message);
+}
+};
+reader.readAsDataURL(file);
+}
+};
 
-    const markAsRead = async (notificationId) => {
-        try {
-            const notifIndex = localDB.notifications.findIndex(n => n.id === notificationId);
-            if (notifIndex !== -1) {
-                localDB.notifications[notifIndex].read = true;
-                await saveToLocalStorage();
-                loadData();
-            }
-        } catch (error) {
-            console.error('Error marking notification as read:', error);
-        }
-    };
+// ✅ FIXED: Mark as Read function
+const markAsRead = async (notificationId) => {
+try {
+console.log('🔵 Marking notification as read:', notificationId);
+await markNotificationAsRead(notificationId);
+await loadData();
+console.log('✅ Notification marked as read successfully');
+} catch (error) {
+console.error('❌ Error marking notification as read:', error);
+}
+};
 
-    const markAllAsRead = async () => {
-        try {
-            if (localDB.notifications) {
-                localDB.notifications.forEach(n => n.read = true);
-                await saveToLocalStorage();
-                loadData();
-            }
-        } catch (error) {
-            console.error('Error marking all as read:', error);
-        }
-    };
+// ✅ FIXED: Mark All as Read function
+const markAllAsRead = async () => {
+try {
+console.log('🔵 Marking all notifications as read...');
+await markAllNotificationsAsRead();
+await loadData();
+console.log('✅ All notifications marked as read successfully');
+} catch (error) {
+console.error('❌ Error marking all as read:', error);
+}
+};
 
-    const clearNotifications = async () => {
-        try {
-            if (window.confirm('Clear all notifications?')) {
-                localDB.notifications = [];
-                await saveToLocalStorage();
-                loadData();
-            }
-        } catch (error) {
-            console.error('Error clearing notifications:', error);
-        }
-    };
+// ✅ FIXED: Clear Notifications function
+const clearNotifications = async () => {
+try {
+if (window.confirm('Clear all notifications?')) {
+console.log('🔵 Clearing all notifications...');
+await clearAllNotifications();
+await loadData();
+console.log('✅ All notifications cleared successfully');
+}
+} catch (error) {
+console.error('❌ Error clearing notifications:', error);
+}
+};
 
-    const handleAddEmployee = async (e) => {
-        e.preventDefault();
-        try {
-            const allUsers = await getAllUsers();
-            const emailExists = allUsers.some(u => u.email === newEmployee.email);
-            if (emailExists) {
-                alert('Email already exists!');
-                return;
-            }
+const handleAddEmployee = async (e) => {
+e.preventDefault();
+try {
+const allUsers = await getAllUsers();
+const emailExists = allUsers.some(u => u.email === newEmployee.email);
+if (emailExists) {
+alert('Email already exists!');
+return;
+}
 
-            await addUser({
-                name: newEmployee.name,
-                email: newEmployee.email,
-                password: newEmployee.password,
-                role: 'employee',
-                position: newEmployee.position,
-                salary: newEmployee.salary,
-                profilePic: newEmployee.profilePic,
-                profilePicture: newEmployee.profilePic
-            });
+await addUser({
+name: newEmployee.name,
+email: newEmployee.email,
+password: newEmployee.password,
+role: 'employee',
+position: newEmployee.position,
+salary: newEmployee.salary,
+profilePic: newEmployee.profilePic,
+profilePicture: newEmployee.profilePic
+});
 
-            alert('Employee added successfully!');
-            setShowAddEmployee(false);
-            setNewEmployee({
-                name: '',
-                email: '',
-                password: '',
-                role: 'employee',
-                position: '',
-                salary: '',
-                profilePic: null
-            });
-            setProfilePicPreview(null);
-            await loadData();
-        } catch (error) {
-            console.error('Error adding employee:', error);
-            alert('Failed to add employee: ' + error.message);
-        }
-    };
+alert('Employee added successfully!');
+setShowAddEmployee(false);
+setNewEmployee({
+name: '',
+email: '',
+password: '',
+role: 'employee',
+position: '',
+salary: '',
+profilePic: null
+});
+setProfilePicPreview(null);
+await loadData();
+} catch (error) {
+console.error('Error adding employee:', error);
+alert('Failed to add employee: ' + error.message);
+}
+};
 
-    const handleDeleteEmployee = async (employeeId, employeeName) => {
-        if (window.confirm(`⚠️ Are you sure you want to delete ${employeeName}?\n\nThis will permanently delete:\n• Employee profile\n• All attendance records\n• Work schedule\n\n⚠️ This action CANNOT be undone!`)) {
-            try {
-                await deleteUser(employeeId);
-                alert('✅ Employee deleted successfully!');
-                await loadData();
-            } catch (error) {
-                console.error('Error deleting employee:', error);
-                alert('❌ Failed to delete employee: ' + error.message);
-            }
-        }
-    };
+const handleDeleteEmployee = async (employeeId, employeeName) => {
+if (window.confirm(`⚠️ Are you sure you want to delete ${employeeName}?\n\nThis will permanently delete:\n• Employee profile\n• All attendance records\n• Work schedule\n\n⚠️ This action CANNOT be undone!`)) {
+try {
+await deleteUser(employeeId);
+alert('✅ Employee deleted successfully!');
+await loadData();
+} catch (error) {
+console.error('Error deleting employee:', error);
+alert('❌ Failed to delete employee: ' + error.message);
+}
+}
+};
 
-    const handleLogout = () => {
-        sessionStorage.removeItem('currentUser');
-        navigate('/');
-    };
+const handleLogout = () => {
+sessionStorage.removeItem('currentUser');
+navigate('/');
+};
 
-    const handleScheduleChange = (day, field, value) => {
-        if (!tempSchedule) return;
-        
-        setTempSchedule(prev => ({
-            ...prev,
-            [day]: {
-                ...prev[day],
-                [field]: value
-            }
-        }));
-    };
+const handleScheduleChange = (day, field, value) => {
+if (!tempSchedule) return;
 
-    const handleSaveSchedule = async () => {
-        if (!selectedEmployee || !tempSchedule) return;
-        
-        try {
-            await saveEmployeeSchedule(selectedEmployee.id, tempSchedule);
-            alert('✅ Schedule saved successfully!');
-            setEditingSchedule(false);
-            setEmployeeSchedules(prev => ({
-                ...prev,
-                [selectedEmployee.id]: tempSchedule
-            }));
-            await loadData();
-        } catch (error) {
-            console.error('Error saving schedule:', error);
-            alert('❌ Failed to save schedule: ' + error.message);
-        }
-    };
+setTempSchedule(prev => ({
+...prev,
+[day]: {
+...prev[day],
+[field]: value
+}
+}));
+};
 
-    const handleEditSchedule = async (employee) => {
-        setSelectedEmployee(employee);
-        const schedule = await getEmployeeSchedule(employee.id);
-        setTempSchedule(schedule);
-        setEditingSchedule(true);
+const handleSaveSchedule = async () => {
+if (!selectedEmployee || !tempSchedule) return;
+
+try {
+await saveEmployeeSchedule(selectedEmployee.id, tempSchedule);
+alert('✅ Schedule saved successfully!');
+setEditingSchedule(false);
+setEmployeeSchedules(prev => ({
+...prev,
+[selectedEmployee.id]: tempSchedule
+}));
+await loadData();
+} catch (error) {
+console.error('Error saving schedule:', error);
+alert('❌ Failed to save schedule: ' + error.message);
+}
+};
+
+const handleEditSchedule = async (employee) => {
+setSelectedEmployee(employee);
+const schedule = await getEmployeeSchedule(employee.id);
+setTempSchedule(schedule);
+setEditingSchedule(true);
     };
 
     const handleCancelEdit = () => {
@@ -519,27 +526,50 @@ useEffect(() => {
             return enabled ? '#e8f5e9' : '#f5f5f5';
         };
 
+        const filteredScheduleUsers = users
+            .filter(u => u.role === 'employee')
+            .filter(u => u.name.toLowerCase().includes(searchScheduleEmployee.toLowerCase()));
+
         return (
             <div className="dashboard-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                     <h2>📅 Employee Schedule Management</h2>
-                    {editingSchedule && (
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button 
-                                className="btn-primary"
-                                onClick={handleSaveSchedule}
-                                style={{ background: '#4CAF50' }}
-                            >
-                                💾 Save Schedule
-                            </button>
-                            <button 
-                                className="btn-secondary"
-                                onClick={handleCancelEdit}
-                            >
-                                ✖ Cancel
-                            </button>
-                        </div>
-                    )}
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <input
+                            type="text"
+                            placeholder="🔍 Search employees..."
+                            value={searchScheduleEmployee}
+                            onChange={(e) => setSearchScheduleEmployee(e.target.value)}
+                            style={{
+                                padding: '0.6rem 1rem',
+                                borderRadius: '8px',
+                                border: '2px solid #e2e8f0',
+                                fontSize: '0.9rem',
+                                outline: 'none',
+                                transition: 'border-color 0.2s',
+                                minWidth: '250px'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                            onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                        />
+                        {editingSchedule && (
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button 
+                                    className="btn-primary"
+                                    onClick={handleSaveSchedule}
+                                    style={{ background: '#4CAF50' }}
+                                >
+                                    💾 Save Schedule
+                                </button>
+                                <button 
+                                    className="btn-secondary"
+                                    onClick={handleCancelEdit}
+                                >
+                                    ✖ Cancel
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: editingSchedule ? '300px 1fr' : '1fr', gap: '1.5rem' }}>
@@ -554,82 +584,108 @@ useEffect(() => {
                         <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             👥 Employees
                         </h3>
+                        <div style={{ marginBottom: '1rem' }}>
+                            <input
+                                type="text"
+                                placeholder="🔍 Search employees..."
+                                value={searchScheduleEmployee}
+                                onChange={(e) => setSearchScheduleEmployee(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.6rem 1rem',
+                                    borderRadius: '8px',
+                                    border: '2px solid #e2e8f0',
+                                    fontSize: '0.9rem',
+                                    outline: 'none',
+                                    transition: 'border-color 0.2s'
+                                }}
+                                onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                                onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                            />
+                        </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            {filteredUsers.map(emp => {
-                                const schedule = employeeSchedules[emp.id] || getDefaultSchedule();
-                                const weeklyHours = calculateWeeklyHours(schedule);
-                                const workingDays = getWorkingDaysCount(schedule);
-                                
-                                return (
-                                    <button
-                                        key={emp.id}
-                                        onClick={() => {
-                                            if (!editingSchedule) {
-                                                handleEditSchedule(emp);
-                                            }
-                                        }}
-                                        style={{
-                                            padding: '1rem',
-                                            border: selectedEmployee?.id === emp.id ? '2px solid #667eea' : '1px solid #e0e0e0',
-                                            borderRadius: '8px',
-                                            background: selectedEmployee?.id === emp.id ? '#f0f4ff' : 'white',
-                                            cursor: editingSchedule ? 'default' : 'pointer',
-                                            textAlign: 'left',
-                                            transition: 'all 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            if (!editingSchedule && selectedEmployee?.id !== emp.id) {
-                                                e.currentTarget.style.borderColor = '#667eea';
-                                            }
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            if (!editingSchedule && selectedEmployee?.id !== emp.id) {
-                                                e.currentTarget.style.borderColor = '#e0e0e0';
-                                            }
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                                            {getProfilePicture(emp) ? (
-                                                <img 
-                                                    src={getProfilePicture(emp)} 
-                                                    alt={emp.name}
-                                                    style={{ 
-                                                        width: '40px', 
-                                                        height: '40px', 
+                            {filteredScheduleUsers.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '2rem 0', color: '#999' }}>
+                                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔍</div>
+                                    <p style={{ margin: 0 }}>No employees found</p>
+                                </div>
+                            ) : (
+                                filteredScheduleUsers.map(emp => {
+                                    const schedule = employeeSchedules[emp.id] || getDefaultSchedule();
+                                    const weeklyHours = calculateWeeklyHours(schedule);
+                                    const workingDays = getWorkingDaysCount(schedule);
+                                    
+                                    return (
+                                        <button
+                                            key={emp.id}
+                                            onClick={() => {
+                                                if (!editingSchedule) {
+                                                    handleEditSchedule(emp);
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '1rem',
+                                                border: selectedEmployee?.id === emp.id ? '2px solid #667eea' : '1px solid #e0e0e0',
+                                                borderRadius: '8px',
+                                                background: selectedEmployee?.id === emp.id ? '#f0f4ff' : 'white',
+                                                cursor: editingSchedule ? 'default' : 'pointer',
+                                                textAlign: 'left',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!editingSchedule && selectedEmployee?.id !== emp.id) {
+                                                    e.currentTarget.style.borderColor = '#667eea';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!editingSchedule && selectedEmployee?.id !== emp.id) {
+                                                    e.currentTarget.style.borderColor = '#e0e0e0';
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                                                {getProfilePicture(emp) ? (
+                                                    <img 
+                                                        src={getProfilePicture(emp)} 
+                                                        alt={emp.name}
+                                                        style={{ 
+                                                            width: '40px', 
+                                                            height: '40px', 
+                                                            borderRadius: '50%',
+                                                            objectFit: 'cover',
+                                                            border: '2px solid #667eea'
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div style={{
+                                                        width: '40px',
+                                                        height: '40px',
                                                         borderRadius: '50%',
-                                                        objectFit: 'cover',
+                                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        color: 'white',
+                                                        fontSize: '0.9rem',
+                                                        fontWeight: 'bold',
                                                         border: '2px solid #667eea'
-                                                    }}
-                                                />
-                                            ) : (
-                                                <div style={{
-                                                    width: '40px',
-                                                    height: '40px',
-                                                    borderRadius: '50%',
-                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    color: 'white',
-                                                    fontSize: '0.9rem',
-                                                    fontWeight: 'bold',
-                                                    border: '2px solid #667eea'
-                                                }}>
-                                                    {getInitials(emp.name)}
+                                                    }}>
+                                                        {getInitials(emp.name)}
+                                                    </div>
+                                                )}
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontWeight: 'bold', color: '#333' }}>{emp.name}</div>
+                                                    <div style={{ fontSize: '0.85rem', color: '#666' }}>{emp.position || 'Employee'}</div>
                                                 </div>
-                                            )}
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: 'bold', color: '#333' }}>{emp.name}</div>
-                                                <div style={{ fontSize: '0.85rem', color: '#666' }}>{emp.position || 'Employee'}</div>
                                             </div>
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #e0e0e0' }}>
-                                            <div>📅 {workingDays} days/week</div>
-                                            <div>⏰ {weeklyHours.toFixed(1)} hrs/week</div>
-                                        </div>
-                                    </button>
-                                );
-                            })}
+                                            <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #e0e0e0' }}>
+                                                <div>📅 {workingDays} days/week</div>
+                                                <div>⏰ {weeklyHours.toFixed(1)} hrs/week</div>
+                                            </div>
+                                        </button>
+                                    );
+                                })
+                            )}
                         </div>
                     </div>
 
@@ -1055,22 +1111,22 @@ useEffect(() => {
                             />
                         </div>
 
-                        <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-                            <div className="stat-card" style={{ background: 'linear-gradient(135deg, #FDFDFDFF 0%, #FFFFFFFF 100%)', color: 'white' }}>
-                                <h4>Total Employees</h4>
-                                <p className="stat-number">{filteredPayroll.length}</p>
+                       <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
+                            <div className="stat-card" style={{ background: 'linear-gradient(135deg, #FDFDFDFF 0%, #FFFFFFFF 100%)', color: '#333' }}>
+                                <h4 style={{ color: '#333' }}>Total Employees</h4>
+                                <p className="stat-number" style={{ color: '#333' }}>{filteredPayroll.length}</p>
                             </div>
-                            <div className="stat-card" style={{ background: 'linear-gradient(135deg, #FFFFFFFF 0%, #FFFFFFFF 100%)', color: 'white' }}>
-                                <h4>Total Basic Pay</h4>
-                                <p className="stat-number">₱{formatCurrency(totals.basicPay)}</p>
+                            <div className="stat-card" style={{ background: 'linear-gradient(135deg, #FFFFFFFF 0%, #FFFFFFFF 100%)', color: '#333' }}>
+                                <h4 style={{ color: '#333' }}>Total Basic Pay</h4>
+                                <p className="stat-number" style={{ color: '#333' }}>₱{formatCurrency(totals.basicPay)}</p>
                             </div>
-                            <div className="stat-card" style={{ background: 'linear-gradient(135deg, #FFFFFFFF 0%, #FFFFFFFF 100%)', color: 'white' }}>
-                                <h4>Total Deductions</h4>
-                                <p className="stat-number">₱{formatCurrency(totals.totalDeductions)}</p>
+                            <div className="stat-card" style={{ background: 'linear-gradient(135deg, #FFFFFFFF 0%, #FFFFFFFF 100%)', color: '#333' }}>
+                                <h4 style={{ color: '#333' }}>Total Deductions</h4>
+                                <p className="stat-number" style={{ color: '#333' }}>₱{formatCurrency(totals.totalDeductions)}</p>
                             </div>
-                            <div className="stat-card" style={{ background: 'linear-gradient(135deg, #FFFFFFFF 0%, #FFFFFFFF 100%)', color: 'white' }}>
-                                <h4>Total Net Pay</h4>
-                                <p className="stat-number">₱{formatCurrency(totals.netPay)}</p>
+                            <div className="stat-card" style={{ background: 'linear-gradient(135deg, #FFFFFFFF 0%, #FFFFFFFF 100%)', color: '#333' }}>
+                                <h4 style={{ color: '#333' }}>Total Net Pay</h4>
+                                <p className="stat-number" style={{ color: '#333' }}>₱{formatCurrency(totals.netPay)}</p>
                             </div>
                         </div>
 
