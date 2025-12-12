@@ -1170,8 +1170,8 @@ setEditingSchedule(true);
                                         <td>₱{formatCurrency(emp.basicPay)}</td>
                                         <td>₱{formatCurrency(emp.overtimePay)}</td>
                                         <td style={{ fontWeight: '600' }}>₱{formatCurrency(emp.totalAmount)}</td>
-                                        <td style={{ color: '#FFFFFFFF' }}>₱{formatCurrency(emp.totalDeductions)}</td>
-                                        <td style={{ color: '#FFFFFFFF', fontWeight: '600' }}>₱{formatCurrency(emp.netPay)}</td>
+                                        <td style={{ color: '#ef4444' }}>₱{formatCurrency(emp.totalDeductions)}</td>
+                                        <td style={{ color: '#10b981', fontWeight: '600' }}>₱{formatCurrency(emp.netPay)}</td>
                                     </tr>
                                 ))}
                             </tbody>
